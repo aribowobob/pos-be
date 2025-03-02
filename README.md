@@ -37,7 +37,7 @@ src/
 Create a `.env` file in the root directory with:
 
 ```env
-DATABASE_URL=postgresql://postgres:postgresql9!@localhost:5432/pos_db
+DATABASE_URL=postgresql://username:your_password@localhost:5432/db_name
 GOOGLE_CLIENT_ID=your_client_id_here
 GOOGLE_CLIENT_SECRET=your_client_secret_here
 JWT_SECRET=your_jwt_secret_here
