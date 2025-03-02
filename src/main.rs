@@ -1,4 +1,8 @@
-use actix_web::{App, HttpServer, HttpResponse, web, get};
+mod handlers;
+mod models;
+mod services;
+
+use actix_web::{App, HttpServer, HttpResponse, get};
 use dotenv::dotenv;
 
 #[get("/")]
@@ -17,6 +21,8 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new()
             .service(hello)
+            .service(handlers::auth::google_auth)
+            .wrap(actix_cors::Cors::permissive())
     })
     .bind(("127.0.0.1", 8080))?
     .run()
