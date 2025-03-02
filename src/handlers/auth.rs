@@ -1,7 +1,10 @@
 use actix_web::{post, web, HttpResponse, cookie::Cookie};
 use serde::Deserialize;
 use std::env;
-use crate::services::auth::{verify_google_token, create_jwt};
+use log::error;
+use crate::services::auth::{verify_google_token, create_jwt, get_user_by_email};
+use crate::models::response::ApiResponse;
+use crate::models::AppState;
 
 fn create_auth_cookie(token: &str) -> Cookie {
     let environment = env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string());
@@ -9,7 +12,7 @@ fn create_auth_cookie(token: &str) -> Cookie {
     let mut cookie = Cookie::build("access_token", token.to_owned())
         .path("/")
         .http_only(true)
-        .max_age(actix_web::cookie::time::Duration::hours(4)); // 4 hours
+        .max_age(actix_web::cookie::time::Duration::hours(4));
 
     if environment == "production" {
         cookie = cookie
@@ -30,23 +33,39 @@ pub struct TokenRequest {
 }
 
 #[post("/auth/google")]
-pub async fn google_auth(req: web::Json<TokenRequest>) -> HttpResponse {
+pub async fn google_auth(req: web::Json<TokenRequest>, data: web::Data<AppState>) -> HttpResponse {
     match verify_google_token(&req.token).await {
-        Ok(user_info) => {
-            let token = create_jwt(&user_info);
-            let cookie = create_auth_cookie(&token);
+        Ok(mut user_info) => {
+            // Check if user exists in database
+            match get_user_by_email(&data.db, &user_info.email).await {
+                Ok(Some(user)) => {
+                    // Update user_info with database values
+                    user_info.full_name = Some(user.full_name);
+                    user_info.initial = Some(user.initial);
 
-            HttpResponse::Ok()
-                .cookie(cookie)
-                .json(serde_json::json!({
-                    "token": token,
-                    "user": user_info
-                }))
+                    let token = create_jwt(&user_info);
+                    let cookie = create_auth_cookie(&token);
+
+                    HttpResponse::Ok()
+                        .cookie(cookie)
+                        .json(ApiResponse::success(serde_json::json!({
+                            "token": token
+                        })))
+                },
+                Ok(None) => {
+                    HttpResponse::Unauthorized()
+                        .json(ApiResponse::<serde_json::Value>::error("User not registered in the system"))
+                },
+                Err(e) => {
+                    HttpResponse::InternalServerError()
+                        .json(ApiResponse::<serde_json::Value>::error(&format!("Database error: {}", e)))
+                }
+            }
         },
         Err(e) => {
-            HttpResponse::Unauthorized().json(serde_json::json!({
-                "error": format!("Invalid token: {:?}", e)
-            }))
+            error!("Token verification error: {:?}", e);
+            HttpResponse::Unauthorized()
+                .json(ApiResponse::<serde_json::Value>::error(&format!("Invalid token: {:?}", e)))
         }
     }
 }

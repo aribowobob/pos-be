@@ -1,11 +1,16 @@
 mod handlers;
 mod models;
 mod services;
+mod middleware;
 
-use actix_web::{App, HttpServer, HttpResponse, get, http::header};
+use actix_web::{App, HttpServer, HttpResponse, get, http::header, web};
 use actix_cors::Cors;
 use dotenv::dotenv;
 use std::env;
+use middleware::auth::AuthMiddleware;
+use env_logger::{Builder, Env};
+use sqlx::postgres::PgPoolOptions;
+use crate::models::AppState;
 
 #[get("/")]
 async fn hello() -> HttpResponse {
@@ -18,6 +23,19 @@ async fn hello() -> HttpResponse {
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
     
+    // Configure more detailed logging
+    Builder::from_env(Env::default().default_filter_or("info"))
+        .format_timestamp_millis()
+        .format_target(true)
+        .init();
+    
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&database_url)
+        .await
+        .expect("Failed to create pool");
+
     let frontend_url = env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
     
     println!("Server starting at http://127.0.0.1:8080");
@@ -31,7 +49,11 @@ async fn main() -> std::io::Result<()> {
             .max_age(3600);
 
         App::new()
+            .app_data(web::Data::new(AppState {
+                db: pool.clone(),
+            }))
             .wrap(cors)
+            .wrap(AuthMiddleware)
             .service(hello)
             .service(handlers::auth::google_auth)
     })
