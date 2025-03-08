@@ -1,14 +1,14 @@
-use actix_web::{post, web, HttpResponse, cookie::Cookie};
-use serde::Deserialize;
-use std::env;
-use log::error;
-use crate::services::auth::{verify_google_token, create_jwt, get_user_by_email};
 use crate::models::response::ApiResponse;
 use crate::models::AppState;
+use crate::services::auth::{create_jwt, get_user_by_email, verify_google_token};
+use actix_web::{cookie::Cookie, post, web, HttpResponse};
+use log::error;
+use serde::Deserialize;
+use std::env;
 
 fn create_auth_cookie(token: &str) -> Cookie {
     let environment = env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string());
-    
+
     let mut cookie = Cookie::build("access_token", token.to_owned())
         .path("/")
         .http_only(true)
@@ -46,26 +46,25 @@ pub async fn google_auth(req: web::Json<TokenRequest>, data: web::Data<AppState>
                     let token = create_jwt(&user_info);
                     let cookie = create_auth_cookie(&token);
 
-                    HttpResponse::Ok()
-                        .cookie(cookie)
-                        .json(ApiResponse::success(serde_json::json!({
-                            "token": token
-                        })))
-                },
-                Ok(None) => {
-                    HttpResponse::Unauthorized()
-                        .json(ApiResponse::<serde_json::Value>::error("User not registered in the system"))
-                },
-                Err(e) => {
-                    HttpResponse::InternalServerError()
-                        .json(ApiResponse::<serde_json::Value>::error(&format!("Database error: {}", e)))
+                    HttpResponse::Ok().cookie(cookie).json(ApiResponse::success(
+                        serde_json::json!({
+                            "authorized": true,
+                        }),
+                    ))
                 }
+                Ok(None) => HttpResponse::Unauthorized().json(
+                    ApiResponse::<serde_json::Value>::error("User not registered in the system"),
+                ),
+                Err(e) => HttpResponse::InternalServerError().json(
+                    ApiResponse::<serde_json::Value>::error(&format!("Database error: {e}")),
+                ),
             }
-        },
+        }
         Err(e) => {
             error!("Token verification error: {:?}", e);
-            HttpResponse::Unauthorized()
-                .json(ApiResponse::<serde_json::Value>::error(&format!("Invalid token: {:?}", e)))
+            HttpResponse::Unauthorized().json(ApiResponse::<serde_json::Value>::error(&format!(
+                "Invalid token: {e:?}",
+            )))
         }
     }
 }

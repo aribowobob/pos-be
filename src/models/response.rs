@@ -16,6 +16,7 @@ impl<T> ApiResponse<T> {
         }
     }
 
+    #[must_use]
     pub fn error(error_message: &str) -> Self {
         Self {
             data: None,

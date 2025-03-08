@@ -1,0 +1,10 @@
+[target.'cfg(all())']
+rustflags = [
+    "-Dwarnings",
+    "-Wclippy::all",
+    "-Wclippy::pedantic",
+    "-Aclippy::module_name_repetitions",
+    "-Aclippy::too_many_lines",
+    "-Aclippy::missing_errors_doc",
+    "-Aclippy::missing_panics_doc",
+]

@@ -1,8 +1,8 @@
-use actix_web::dev::{ServiceRequest, ServiceResponse};
-use actix_web::Error;
-use actix_web::error::ErrorUnauthorized;
 use actix_web::dev::Service;
 use actix_web::dev::Transform;
+use actix_web::dev::{ServiceRequest, ServiceResponse};
+use actix_web::error::ErrorUnauthorized;
+use actix_web::Error;
 use std::future::{ready, Future, Ready};
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -44,39 +44,35 @@ where
         self.service.poll_ready(cx)
     }
 
-    fn call(&self, req: ServiceRequest) -> Self::Future {
+    fn call(&self, request: ServiceRequest) -> Self::Future {
         // Skip authentication for /auth routes
-        if req.path().starts_with("/auth") {
-            let fut = self.service.call(req);
+        if request.path().starts_with("/auth") {
+            let fut = self.service.call(request);
             return Box::pin(async move {
-                let res = fut.await?;
-                Ok(res)
+                let response = fut.await?;
+                Ok(response)
             });
         }
 
         // Check for access_token cookie
-        if let Some(cookie) = req.cookie("access_token") {
+        if let Some(cookie) = request.cookie("access_token") {
             let token = cookie.value().to_string();
-            
+
             // Verify JWT token
             match crate::services::auth::verify_jwt(&token) {
                 Ok(_claims) => {
-                    let fut = self.service.call(req);
+                    let fut = self.service.call(request);
                     return Box::pin(async move {
-                        let res = fut.await?;
-                        Ok(res)
+                        let response = fut.await?;
+                        Ok(response)
                     });
                 }
                 Err(_) => {
-                    return Box::pin(async move {
-                        Err(ErrorUnauthorized("Invalid token"))
-                    });
+                    return Box::pin(async move { Err(ErrorUnauthorized("Invalid token")) });
                 }
             }
         }
 
-        Box::pin(async move {
-            Err(ErrorUnauthorized("No authentication token"))
-        })
+        Box::pin(async move { Err(ErrorUnauthorized("No authentication token")) })
     }
 }
