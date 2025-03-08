@@ -1,16 +1,20 @@
 mod handlers;
 mod middleware;
 mod models;
+mod routes;
 mod services;
 
 use crate::models::AppState;
 use actix_cors::Cors;
-use actix_web::{get, http::header, web, App, HttpResponse, HttpServer};
+use actix_web::{
+    get, http::header, middleware as actix_middleware, web, App, HttpResponse, HttpServer,
+};
 use dotenv::dotenv;
 use env_logger::{Builder, Env};
 use middleware::auth::AuthMiddleware;
 use sqlx::postgres::PgPoolOptions;
 use std::env;
+use std::io;
 
 #[get("/")]
 async fn hello() -> HttpResponse {
@@ -20,7 +24,7 @@ async fn hello() -> HttpResponse {
 }
 
 #[actix_web::main]
-async fn main() -> std::io::Result<()> {
+async fn main() -> io::Result<()> {
     dotenv().ok();
 
     // Configure more detailed logging
@@ -53,8 +57,8 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(AppState { db: pool.clone() }))
             .wrap(cors)
             .wrap(AuthMiddleware)
-            .service(hello)
-            .service(handlers::auth::google_auth)
+            .wrap(actix_middleware::Logger::default())
+            .configure(routes::configure_routes)
     })
     .bind(("127.0.0.1", 8080))?
     .run()

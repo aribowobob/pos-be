@@ -1,7 +1,7 @@
 use crate::models::response::ApiResponse;
 use crate::models::AppState;
 use crate::services::auth::{create_jwt, get_user_by_email, verify_google_token};
-use actix_web::{cookie::Cookie, post, web, HttpResponse};
+use actix_web::{cookie::Cookie, web, HttpResponse};
 use log::error;
 use serde::Deserialize;
 use std::env;
@@ -32,7 +32,6 @@ pub struct TokenRequest {
     token: String,
 }
 
-#[post("/auth/google")]
 pub async fn google_auth(req: web::Json<TokenRequest>, data: web::Data<AppState>) -> HttpResponse {
     match verify_google_token(&req.token).await {
         Ok(mut user_info) => {

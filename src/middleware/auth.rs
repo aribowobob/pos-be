@@ -46,7 +46,7 @@ where
 
     fn call(&self, request: ServiceRequest) -> Self::Future {
         // Skip authentication for /auth routes
-        if request.path().starts_with("/auth") {
+        if request.path().starts_with("/auth") || request.path() == "/health" {
             let fut = self.service.call(request);
             return Box::pin(async move {
                 let response = fut.await?;
