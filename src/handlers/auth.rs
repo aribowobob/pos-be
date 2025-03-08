@@ -20,7 +20,7 @@ fn create_auth_cookie(token: &str) -> Cookie {
             .same_site(actix_web::cookie::SameSite::Strict);
     } else {
         cookie = cookie
-            .secure(false)
+            .secure(true)
             .same_site(actix_web::cookie::SameSite::None);
     }
 

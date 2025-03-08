@@ -59,7 +59,8 @@ where
             let token = cookie.value().to_string();
 
             // Verify JWT token
-            match crate::services::auth::verify_jwt(&token) {
+            let verify_jwt_result = crate::services::auth::verify_jwt(&token);
+            match verify_jwt_result {
                 Ok(_claims) => {
                     let fut = self.service.call(request);
                     return Box::pin(async move {
@@ -67,7 +68,8 @@ where
                         Ok(response)
                     });
                 }
-                Err(_) => {
+                Err(e) => {
+                    log::warn!("JWT verification failed: {:?}", e);
                     return Box::pin(async move { Err(ErrorUnauthorized("Invalid token")) });
                 }
             }
