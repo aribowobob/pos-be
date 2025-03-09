@@ -1,8 +1,9 @@
 # Rust build directory
 /target/
+target/
 
 # Cargo lock file (uncomment if it's a library)
-# Cargo.lock
+Cargo.lock
 
 # IDE specific files
 .idea/
@@ -26,3 +27,7 @@ Thumbs.db
 
 # Generated documentation
 /doc/
+
+# Security files
+*.pem
+*.key

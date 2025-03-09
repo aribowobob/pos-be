@@ -13,16 +13,30 @@ A Point of Sale (POS) backend system built with Rust and Actix-web, featuring Go
 
 ```
 src/
-├── handlers/           # Request handlers
-│   ├── mod.rs
-│   └── auth.rs        # Authentication handlers
-├── models/            # Data structures
-│   ├── mod.rs
-│   └── auth.rs        # Auth-related models
-├── services/          # Business logic
-│   ├── mod.rs
-│   └── auth.rs        # Auth service implementation
-└── main.rs           # Application entry point
+├── errors/           # Custom error definitions
+├── handlers/         # Request handlers
+│   ├── auth.rs      # Authentication handlers
+│   ├── user.rs      # User-related handlers
+│   └── mod.rs
+├── middleware/       # Custom middlewares
+├── models/          # Data structures
+│   ├── app_state.rs # Application state
+│   ├── auth.rs      # Auth-related models
+│   ├── response.rs  # API response structures
+│   ├── user.rs      # User & Store models
+│   └── mod.rs
+├── routes/          # API route definitions
+│   ├── auth.rs      # Auth routes
+│   ├── health.rs    # Health check routes
+│   ├── orders.rs    # Order management routes
+│   ├── products.rs  # Product management routes
+│   ├── user.rs      # User routes
+│   └── mod.rs
+├── services/        # Business logic
+│   ├── auth.rs      # Auth services
+│   ├── user_service.rs # User-related services
+│   └── mod.rs
+└── main.rs         # Application entry point
 ```
 
 ## Prerequisites
@@ -41,57 +55,75 @@ DATABASE_URL=postgresql://username:your_password@localhost:5432/db_name
 GOOGLE_CLIENT_ID=your_client_id_here
 GOOGLE_CLIENT_SECRET=your_client_secret_here
 JWT_SECRET=your_jwt_secret_here
+ENVIRONMENT=development | production
+FRONTEND_URL=your_frontend_url
 ```
+
+**Security Warning:** Do not share your `.env` file or expose it publicly. It contains sensitive information that should be kept secret.
 
 ## Installation
 
-1. Clone the repository
+1. Install Rust and Cargo
 ```bash
-git clone [your-repository-url]
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+2. Install PostgreSQL and create database
+```bash
+# For Ubuntu/Debian
+sudo apt install postgresql
+
+# Create database
+createdb pos_db
+```
+
+3. Set up the project
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/pos-be.git
 cd pos-be
+
+# Copy environment template
+cp .env.example .env
+
+# Configure your .env file with appropriate values
+# DATABASE_URL=postgresql://postgres:postgresql9!@localhost:5432/pos_db
+# GOOGLE_CLIENT_ID=your_client_id
+# GOOGLE_CLIENT_SECRET=your_client_secret
+# JWT_SECRET=your_secret
+# ENVIRONMENT=development
+# FRONTEND_URL=http://localhost:3000
 ```
 
-2. Install dependencies and build
+4. Development
 ```bash
-cargo build
-```
+# Run in development mode with auto-reload
+cargo dev
 
-3. Run the application
-```bash
+# Or run normally
 cargo run
 ```
 
-The server will start at `http://127.0.0.1:8080`
-
-## API Endpoints
-
-### Public Endpoints
-- `GET /` - Welcome message
-
-### Authentication Endpoints
-- `POST /auth/google` - Google OAuth2 authentication
-  - Request body: `{ "token": "google-id-token" }`
-  - Response: 
-    ```json
-    {
-      "token": "jwt-token",
-      "user": {
-        "email": "user@example.com",
-        "name": "User Name",
-        "picture": "profile-picture-url"
-      }
-    }
-    ```
+The server will start at `http://localhost:8080`
 
 ## Dependencies
 
-- actix-web - Web framework
-- actix-cors - CORS middleware
-- serde - Serialization/Deserialization
-- jsonwebtoken - JWT implementation
-- reqwest - HTTP client
-- dotenv - Environment configuration
-- chrono - Time utilities
+```toml
+[dependencies]
+sqlx = { version = "0.7", features = ["runtime-tokio", "postgres", "chrono", "json"] }
+actix-web = "4.3"
+actix-cors = "0.6.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+dotenv = "0.15"
+jsonwebtoken = "8.3"
+reqwest = { version = "0.11", features = ["json"] }
+chrono = { version = "0.4", features = ["serde"] }
+tokio = { version = "1.28", features = ["full"] }
+oauth2 = "4.4"
+log = "0.4"
+env_logger = "0.10"
+```
 
 ## License
 
