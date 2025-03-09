@@ -8,3 +8,8 @@ rustflags = [
     "-Aclippy::missing_errors_doc",
     "-Aclippy::missing_panics_doc",
 ]
+
+[alias]
+# Use direct commands instead of recursive aliases
+w = "watch -x 'run'"
+dev = "watch -x check -x test -x run"
