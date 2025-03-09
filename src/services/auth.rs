@@ -3,6 +3,7 @@ use crate::models::user::{User, UserInfo};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use log::{debug, error, info, warn};
 use sqlx::PgPool;
+use sqlx::Row;
 use std::env;
 
 pub async fn verify_google_token(token: &str) -> Result<UserInfo, Box<dyn std::error::Error>> {
@@ -25,11 +26,16 @@ pub async fn verify_google_token(token: &str) -> Result<UserInfo, Box<dyn std::e
             debug!("Google API response: {}", response_text);
 
             match serde_json::from_str::<UserInfo>(&response_text) {
-                Ok(user_info) => {
+                Ok(mut user_info) => {
                     debug!(
                         "Successfully parsed user info for email: {}",
                         user_info.email
                     );
+                    // Set default values for fields that are not from Google
+                    user_info.id = 0; // This will be populated from the database when found
+                    user_info.full_name = user_info.name.clone().unwrap_or_default();
+                    user_info.company_id = 0; // This will be populated from the database when found
+
                     Ok(user_info)
                 }
                 Err(e) => {
@@ -75,23 +81,34 @@ pub fn verify_jwt(
 
 pub async fn get_user_by_email(pool: &PgPool, email: &str) -> Result<Option<User>, sqlx::Error> {
     debug!("Looking up user with email: {}", email);
-    let user = sqlx::query_as!(
-        User,
-        r#"
-        SELECT id, email, company_id, full_name, initial
-        FROM users
-        WHERE email = $1
-        "#,
-        email
+
+    let row = sqlx::query(
+        "SELECT id, email, company_id, full_name, initial, created_at, updated_at 
+         FROM users 
+         WHERE email = $1",
     )
+    .bind(email)
     .fetch_optional(pool)
     .await?;
 
-    if user.is_some() {
-        info!("User found for email: {email}");
-    } else {
-        warn!("No user found for email: {email}");
-    }
+    match row {
+        Some(row) => {
+            let user = User {
+                id: row.try_get("id")?,
+                email: row.try_get("email")?,
+                company_id: row.try_get("company_id")?,
+                full_name: row.try_get("full_name")?,
+                initial: row.try_get("initial")?,
+                created_at: row.try_get("created_at")?,
+                updated_at: row.try_get("updated_at")?,
+            };
 
-    Ok(user)
+            info!("User found for email: {}", email);
+            Ok(Some(user))
+        }
+        None => {
+            warn!("No user found for email: {}", email);
+            Ok(None)
+        }
+    }
 }

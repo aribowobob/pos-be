@@ -39,8 +39,9 @@ pub async fn google_auth(req: web::Json<TokenRequest>, data: web::Data<AppState>
             match get_user_by_email(&data.db, &user_info.email).await {
                 Ok(Some(user)) => {
                     // Update user_info with database values
-                    user_info.full_name = Some(user.full_name);
-                    user_info.initial = Some(user.initial);
+                    user_info.id = user.id;
+                    user_info.full_name = user.full_name.clone();
+                    user_info.company_id = user.company_id;
 
                     let token = create_jwt(&user_info);
                     let cookie = create_auth_cookie(&token);

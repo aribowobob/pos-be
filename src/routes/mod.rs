@@ -2,12 +2,14 @@ pub mod auth;
 pub mod health;
 pub mod orders;
 pub mod products;
+pub mod user;
 
 // Re-export all route configuration functions
 pub use auth::configure as configure_auth;
 pub use health::configure as configure_health;
 pub use orders::configure as configure_orders;
 pub use products::configure as configure_products;
+pub use user::configure as configure_user;
 
 use actix_web::web;
 
@@ -21,6 +23,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/api")
             .configure(configure_products)
-            .configure(configure_orders),
+            .configure(configure_orders)
+            .configure(configure_user),
     );
 }
