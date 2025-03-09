@@ -1,33 +1,70 @@
-use diesel::prelude::*;
-use diesel::{PgConnection, QueryDsl, RunQueryDsl};
+use log::error;
+use sqlx::PgPool;
 
-// Update import to use crate::db
-use crate::db::schema::{stores, user_stores, users};
 use crate::errors::ServiceError;
-use crate::models::user::{Store, User, UserStore, UserWithStores};
+use crate::models::user::{Store, User, UserWithStores};
 
-pub fn get_user_with_stores(
-    conn: &PgConnection,
-    user_id: i32,
+pub async fn get_user_with_stores(
+    pool: &PgPool,
+    email: String,
 ) -> Result<UserWithStores, ServiceError> {
-    // Get the user
-    let user = users::table
-        .find(user_id)
-        .first::<User>(conn)
-        .map_err(|_| ServiceError::NotFound("User not found".into()))?;
+    // Get the user by email
+    let user = sqlx::query_as!(
+        User,
+        r#"
+        SELECT id, email, company_id, full_name, initial, 
+               created_at, updated_at
+        FROM users 
+        WHERE email = $1
+        "#,
+        email
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(|e| {
+        error!("Database error fetching user: {:?}", e);
+        ServiceError::NotFound(format!("User not found: {}", e))
+    })?;
 
     // Get store IDs for this user
-    let store_ids: Vec<i32> = user_stores::table
-        .filter(user_stores::user_id.eq(user_id))
-        .select(user_stores::store_id)
-        .load::<i32>(conn)
-        .map_err(|_| ServiceError::InternalServerError("Failed to load user stores".into()))?;
+    let store_ids = sqlx::query!(
+        r#"
+        SELECT store_id 
+        FROM user_stores 
+        WHERE user_id = $1
+        "#,
+        user.id
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| {
+        error!("Database error fetching store IDs: {:?}", e);
+        ServiceError::InternalServerError(format!("Failed to load user stores: {}", e))
+    })?
+    .into_iter()
+    .map(|record| record.store_id)
+    .collect::<Vec<i32>>();
+
+    if store_ids.is_empty() {
+        return Ok(UserWithStores::from_user_and_stores(user, vec![]));
+    }
 
     // Get store details
-    let user_stores: Vec<Store> = stores::table
-        .filter(stores::id.eq_any(store_ids))
-        .load::<Store>(conn)
-        .map_err(|_| ServiceError::InternalServerError("Failed to load stores".into()))?;
+    let user_stores = sqlx::query_as!(
+        Store,
+        r#"
+        SELECT id, name, company_id, initial, created_at, updated_at
+        FROM stores 
+        WHERE id = ANY($1)
+        "#,
+        &store_ids[..]
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| {
+        error!("Database error fetching stores: {:?}", e);
+        ServiceError::InternalServerError(format!("Failed to load stores: {}", e))
+    })?;
 
     Ok(UserWithStores::from_user_and_stores(user, user_stores))
 }

@@ -1,4 +1,3 @@
-pub mod db;
 mod errors;
 mod handlers;
 mod middleware;
@@ -13,6 +12,7 @@ use actix_web::{
 };
 use dotenv::dotenv;
 use env_logger::{Builder, Env};
+use log::LevelFilter;
 use middleware::auth::AuthMiddleware;
 use sqlx::postgres::PgPoolOptions;
 use std::env;
@@ -29,10 +29,12 @@ async fn hello() -> HttpResponse {
 async fn main() -> io::Result<()> {
     dotenv().ok();
 
-    // Configure more detailed logging
-    Builder::from_env(Env::default().default_filter_or("info"))
+    // Initialize logger with more detailed configuration
+    Builder::new()
+        .filter_level(LevelFilter::Info)
         .format_timestamp_millis()
         .format_target(true)
+        .parse_env(Env::default().default_filter_or("info"))
         .init();
 
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
