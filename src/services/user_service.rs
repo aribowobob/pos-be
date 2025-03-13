@@ -12,10 +12,11 @@ pub async fn get_user_with_stores(
     let user = sqlx::query_as!(
         User,
         r#"
-        SELECT id, email, company_id, full_name, initial, 
-               created_at, updated_at
-        FROM users 
-        WHERE email = $1
+        SELECT u.id, u.email, u.company_id, u.full_name, u.initial, 
+               u.created_at, u.updated_at, c.name as company_name
+        FROM users u
+        JOIN companies c ON u.company_id = c.id
+        WHERE u.email = $1
         "#,
         email
     )

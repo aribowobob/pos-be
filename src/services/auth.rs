@@ -83,9 +83,10 @@ pub async fn get_user_by_email(pool: &PgPool, email: &str) -> Result<Option<User
     debug!("Looking up user with email: {}", email);
 
     let row = sqlx::query(
-        "SELECT id, email, company_id, full_name, initial, created_at, updated_at 
-         FROM users 
-         WHERE email = $1",
+        "SELECT u.id, u.email, u.company_id, u.full_name, u.initial, u.created_at, u.updated_at, c.name as company_name
+         FROM users u
+         LEFT JOIN companies c ON u.company_id = c.id
+         WHERE u.email = $1",
     )
     .bind(email)
     .fetch_optional(pool)
@@ -97,6 +98,7 @@ pub async fn get_user_by_email(pool: &PgPool, email: &str) -> Result<Option<User
                 id: row.try_get("id")?,
                 email: row.try_get("email")?,
                 company_id: row.try_get("company_id")?,
+                company_name: row.try_get("company_name")?,
                 full_name: row.try_get("full_name")?,
                 initial: row.try_get("initial")?,
                 created_at: row.try_get("created_at")?,
