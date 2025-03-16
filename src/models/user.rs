@@ -1,55 +1,35 @@
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct User {
     pub id: i32,
     pub email: String,
     pub company_id: i32,
     pub full_name: String,
     pub initial: String,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
     pub company_name: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct Store {
     pub id: i32,
     pub name: String,
     pub company_id: i32,
     pub initial: String,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UserWithStores {
     pub id: i32,
     pub email: String,
     pub company_id: i32,
-    pub company_name: Option<String>, // Add company name field
+    pub company_name: Option<String>,
     pub full_name: String,
     pub initial: String,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
     pub stores: Vec<Store>,
-}
-
-impl UserWithStores {
-    pub fn from_user_and_stores(user: User, stores: Vec<Store>) -> Self {
-        Self {
-            id: user.id,
-            email: user.email,
-            company_id: user.company_id,
-            company_name: user.company_name, // Include company name here
-            full_name: user.full_name,
-            initial: user.initial,
-            created_at: user.created_at,
-            updated_at: user.updated_at,
-            stores,
-        }
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

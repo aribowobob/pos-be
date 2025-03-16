@@ -1,10 +1,13 @@
+use crate::errors::ServiceError;
 use crate::models::auth::Claims;
 use crate::models::user::{User, UserInfo};
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, TokenData, Validation};
 use log::{debug, error, info, warn};
 use sqlx::PgPool;
 use sqlx::Row;
 use std::env;
+use uuid::Uuid;
+use chrono::{DateTime, Utc, NaiveDateTime};
 
 pub async fn verify_google_token(token: &str) -> Result<UserInfo, Box<dyn std::error::Error>> {
     let client = reqwest::Client::new();
@@ -68,15 +71,15 @@ pub fn create_jwt(user_info: &UserInfo) -> String {
     .unwrap()
 }
 
-pub fn verify_jwt(
-    token: &str,
-) -> Result<jsonwebtoken::TokenData<Claims>, jsonwebtoken::errors::Error> {
-    let jwt_secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
+pub fn verify_jwt(token: &str) -> Result<TokenData<Claims>, ServiceError> {
+    let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "default_secret".to_string());
+    
     decode::<Claims>(
         token,
         &DecodingKey::from_secret(jwt_secret.as_bytes()),
         &Validation::default(),
     )
+    .map_err(|_| ServiceError::Unauthorized)
 }
 
 pub async fn get_user_by_email(pool: &PgPool, email: &str) -> Result<Option<User>, sqlx::Error> {
@@ -94,18 +97,18 @@ pub async fn get_user_by_email(pool: &PgPool, email: &str) -> Result<Option<User
 
     match row {
         Some(row) => {
+            debug!("Found user row, extracting data");
+            
             let user = User {
-                id: row.try_get("id")?,
+                id: row.try_get::<i32, _>("id")?,
                 email: row.try_get("email")?,
                 company_id: row.try_get("company_id")?,
                 company_name: row.try_get("company_name")?,
                 full_name: row.try_get("full_name")?,
                 initial: row.try_get("initial")?,
-                created_at: row.try_get("created_at")?,
-                updated_at: row.try_get("updated_at")?,
             };
 
-            info!("User found for email: {}", email);
+            info!("User found for email: {} with ID: {}", email, user.id);
             Ok(Some(user))
         }
         None => {

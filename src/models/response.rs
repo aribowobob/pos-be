@@ -1,27 +1,29 @@
 use serde::Serialize;
 
 #[derive(Serialize)]
-pub struct ApiResponse<T> {
-    pub data: Option<T>,
+pub struct ApiResponse<T>
+where
+    T: Serialize,
+{
+    pub status: String,
     pub message: String,
-    pub error: Option<String>,
+    pub data: Option<T>,
 }
 
-impl<T> ApiResponse<T> {
+impl<T: Serialize> ApiResponse<T> {
     pub fn success(data: T) -> Self {
         Self {
+            status: "success".to_string(),
+            message: "Operation completed successfully".to_string(),
             data: Some(data),
-            message: "success".to_string(),
-            error: None,
         }
     }
-
-    #[must_use]
-    pub fn error(error_message: &str) -> Self {
-        Self {
+    
+    pub fn error(message: &str) -> ApiResponse<serde_json::Value> {
+        ApiResponse {
+            status: "error".to_string(),
+            message: message.to_string(),
             data: None,
-            message: "error".to_string(),
-            error: Some(error_message.to_string()),
         }
     }
 }

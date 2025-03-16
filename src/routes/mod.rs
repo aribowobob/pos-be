@@ -26,4 +26,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .configure(configure_orders)
             .configure(configure_user),
     );
+
+    // Configure user routes
+    user::configure(cfg);
 }

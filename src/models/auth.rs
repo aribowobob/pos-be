@@ -10,6 +10,6 @@ pub struct GoogleTokenInfo {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String,
-    pub exp: usize,
     pub email: String,
+    pub exp: usize,
 }

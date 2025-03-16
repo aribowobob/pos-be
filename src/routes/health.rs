@@ -2,12 +2,11 @@ use actix_web::{web, HttpResponse, Responder};
 
 async fn health_check() -> impl Responder {
     HttpResponse::Ok().json(serde_json::json!({
-        "status": "ok",
-        "message": "Service is running"
+        "status": "UP",
+        "version": env!("CARGO_PKG_VERSION")
     }))
 }
 
-// Configure health check routes
 pub fn configure(cfg: &mut web::ServiceConfig) {
-    cfg.service(web::scope("/health").route("", web::get().to(health_check)));
+    cfg.route("/health", web::get().to(health_check));
 }

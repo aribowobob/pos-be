@@ -1,7 +1,12 @@
-use crate::handlers::auth::google_auth;
 use actix_web::web;
+use log::info;
+use crate::handlers::auth::{google_login, logout};
 
-// Configure auth routes
 pub fn configure(cfg: &mut web::ServiceConfig) {
-    cfg.service(web::scope("/auth").route("/google", web::post().to(google_auth)));
+    info!("Configuring auth routes");
+    cfg.service(
+        web::scope("/auth")
+            .route("/google", web::post().to(google_login))
+            .route("/logout", web::post().to(logout))
+    );
 }

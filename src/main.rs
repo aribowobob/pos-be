@@ -12,9 +12,8 @@ use actix_web::{
 };
 use dotenv::dotenv;
 use env_logger::{Builder, Env};
-use log::LevelFilter;
+use log::{info, LevelFilter};
 use middleware::auth::AuthMiddleware;
-use sqlx::postgres::PgPoolOptions;
 use std::env;
 use std::io;
 
@@ -38,16 +37,11 @@ async fn main() -> io::Result<()> {
         .init();
 
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&database_url)
-        .await
-        .expect("Failed to create pool");
-
     let frontend_url =
         env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
 
-    println!("Server starting at http://127.0.0.1:8080");
+    info!("Server starting at http://127.0.0.1:8080");
+    info!("Database connection will be established on-demand");
 
     HttpServer::new(move || {
         let cors = Cors::default()
@@ -58,13 +52,15 @@ async fn main() -> io::Result<()> {
             .max_age(3600);
 
         App::new()
-            .app_data(web::Data::new(AppState { db: pool.clone() }))
+            .app_data(web::Data::new(AppState {
+                db_connection_string: database_url.clone(),
+            }))
             .wrap(cors)
             .wrap(AuthMiddleware)
             .wrap(actix_middleware::Logger::default())
             .configure(routes::configure_routes)
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind("127.0.0.1:8080")?
     .run()
     .await
 }
