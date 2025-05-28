@@ -51,3 +51,9 @@ impl DbConnectionManager {
         }
     }
 }
+
+// Helper function to get a database pool
+pub async fn get_db_pool(connection_string: &str) -> Result<PgPool, ServiceError> {
+    let manager = DbConnectionManager::new(connection_string.to_string());
+    manager.get_pool().await
+}

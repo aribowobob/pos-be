@@ -48,6 +48,11 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
+        // Check if route is marked to skip auth
+        if req.extensions().contains::<super::skip_auth::SkipAuthFlag>() {
+            return Box::pin(self.service.call(req));
+        }
+
         // Skip auth for certain paths
         let path = req.path();
         if path == "/" || path.starts_with("/auth") || path.starts_with("/health") {

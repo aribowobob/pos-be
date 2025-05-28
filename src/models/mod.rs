@@ -4,3 +4,4 @@ pub mod response;
 pub mod user;
 
 pub use app_state::AppState;
+pub use response::ApiResponse;

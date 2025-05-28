@@ -40,8 +40,13 @@ async fn main() -> io::Result<()> {
     let frontend_url =
         env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
 
-    info!("Server starting at http://127.0.0.1:8080");
     info!("Database connection will be established on-demand");
+
+    // Get port from environment variable or use default 8080
+    let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
+    let addr = format!("127.0.0.1:{}", port);
+    
+    info!("Server starting at http://{}", addr);
 
     HttpServer::new(move || {
         let cors = Cors::default()
@@ -60,7 +65,7 @@ async fn main() -> io::Result<()> {
             .wrap(actix_middleware::Logger::default())
             .configure(routes::configure_routes)
     })
-    .bind("127.0.0.1:8080")?
+    .bind(&addr)?
     .run()
     .await
 }
