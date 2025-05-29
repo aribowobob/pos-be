@@ -71,35 +71,35 @@ pub async fn google_login(
                     // Create JWT token
                     let token = create_jwt(&user_info);
                     
-                    // Detect if we're using HTTPS by checking environment or configuration
-                    // For development on plain HTTP, we can't use Secure attribute
-                    let is_https = env::var("USE_HTTPS").unwrap_or_else(|_| "false".to_string()) == "true";
+                    // Untuk permintaan cross-origin dengan SameSite=None, cookie harus selalu secure
+                    // Ini adalah persyaratan browser modern, meskipun API berjalan di HTTP
                     
-                    // Build cookie with appropriate settings
-                    let mut cookie_builder = Cookie::build("access_token", token.clone())
+                    // Dalam situasi ini, kita akan menghindari mengatur domain cookie untuk kompatibilitas maksimum
+                    info!("Setting cookie for cross-origin support");
+                    
+                    // Force secure untuk cross-site, walaupun kita menggunakan HTTP
+                    // Browser modern memerlukan ini ketika SameSite=None
+                    let cookie = Cookie::build("access_token", token.clone())
                         .path("/")
-                        .max_age(Duration::hours(24)) // Use time::Duration::hours
+                        .max_age(Duration::hours(24))
                         .http_only(true)
-                        .same_site(actix_web::cookie::SameSite::None); // Required for cross-site requests
+                        .same_site(actix_web::cookie::SameSite::None) // Required for cross-site requests
+                        .secure(true) // Must be true when SameSite=None, even if using HTTP
+                        .finish();
                     
-                    // Only set secure flag if using HTTPS
-                    if is_https {
-                        cookie_builder = cookie_builder.secure(true);
-                    } else {
-                        info!("Using non-secure cookies because connection is not HTTPS");
-                    }
-                        
-                    // Create cookie with the JWT token
-                    let cookie = cookie_builder.finish();
+                    debug!("Cookie path: {}, SameSite: None, Secure: true", cookie.path().unwrap_or("/"));
                     
-                    // Return successful response with cookie
+                    // Return successful response with cookie and additional headers for CORS
                     HttpResponse::Ok()
+                        .append_header(("Access-Control-Allow-Credentials", "true"))
+                        .append_header(("Access-Control-Expose-Headers", "Set-Cookie"))
                         .cookie(cookie)
                         .json(ApiResponse {
                             status: "success".to_string(),
                             message: "Login successful".to_string(),
                             data: Some(serde_json::json!({
-                                "token": token
+                                "token": token,
+                                "cookies_enabled": true // Flag to indicate cookies are being used
                             })),
                         })
                 }
@@ -127,24 +127,19 @@ pub async fn google_login(
 }
 
 pub async fn logout() -> HttpResponse {
-    // Detect if we're using HTTPS by checking environment or configuration
-    let is_https = env::var("USE_HTTPS").unwrap_or_else(|_| "false".to_string()) == "true";
-    
-    // Build cookie with appropriate settings
-    let mut cookie_builder = Cookie::build("access_token", "")
+    // Build cookie with appropriate settings, matching login
+    // Konsisten dengan login - tanpa domain
+    let cookie = Cookie::build("access_token", "")
         .path("/")
-        .max_age(Duration::seconds(0)) // Use time::Duration::seconds instead
+        .max_age(Duration::seconds(0))
         .http_only(true)
-        .same_site(actix_web::cookie::SameSite::None); // Consistent with login cookie
-    
-    // Only set secure flag if using HTTPS
-    if is_https {
-        cookie_builder = cookie_builder.secure(true);
-    }
-    
-    let cookie = cookie_builder.finish();
+        .same_site(actix_web::cookie::SameSite::None) // Consistent with login cookie
+        .secure(true) // Must be true when SameSite=None, even if using HTTP
+        .finish();
 
     HttpResponse::Ok()
+        .append_header(("Access-Control-Allow-Credentials", "true"))
+        .append_header(("Access-Control-Expose-Headers", "Set-Cookie"))
         .cookie(cookie)
         .json(ApiResponse {
             status: "success".to_string(),

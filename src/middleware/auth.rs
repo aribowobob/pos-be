@@ -60,15 +60,23 @@ where
         }
 
         // Get token from cookies or Authorization header
+        // Prioritize cookie-based authentication for better security
         let token = req
             .cookie("access_token")
-            .map(|c| c.value().to_string())
+            .map(|c| {
+                // Log that we're using a cookie-based token for debugging
+                // Menghapus logging ini di lingkungan produksi
+                log::debug!("Using token from cookie for authentication");
+                c.value().to_string()
+            })
             .or_else(|| {
+                // Fallback to Authorization header if cookie is not present
                 req.headers()
                     .get(AUTHORIZATION)
                     .and_then(|auth| auth.to_str().ok())
                     .and_then(|auth_str| {
                         if auth_str.starts_with("Bearer ") {
+                            log::debug!("Using Bearer token from Authorization header");
                             Some(auth_str[7..].to_string())
                         } else {
                             None

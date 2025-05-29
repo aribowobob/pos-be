@@ -59,7 +59,7 @@ async fn main() -> io::Result<()> {
     info!("Server starting at http://{}", addr);
 
     HttpServer::new(move || {
-        // Initialize CORS configuration
+        // Initialize CORS configuration with proper headers for cookie support
         let mut cors = Cors::default()
             .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"])
             .allowed_headers(vec![
@@ -69,10 +69,15 @@ async fn main() -> io::Result<()> {
                 header::ORIGIN,
                 header::SET_COOKIE,
                 header::COOKIE,
+                header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
+                header::ACCESS_CONTROL_ALLOW_ORIGIN,
+                header::ACCESS_CONTROL_REQUEST_HEADERS,
+                header::ACCESS_CONTROL_EXPOSE_HEADERS,
             ])
             .expose_headers(vec![
                 "content-length",
                 "Set-Cookie",
+                "Authorization"
             ])
             .supports_credentials() // This enables cookies, authorization headers and TLS certificates
             .max_age(3600);

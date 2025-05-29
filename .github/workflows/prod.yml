@@ -175,8 +175,6 @@ jobs:
           sshpass -e ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}' >> /root/pos-app/.env"
           # Add environment type
           sshpass -e ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'ENVIRONMENT=production' >> /root/pos-app/.env"
-          # Set USE_HTTPS to false since we're using HTTP
-          sshpass -e ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'USE_HTTPS=false' >> /root/pos-app/.env"
 
           # Create Docker Hub credentials file on server with explicit base64 encoding
           echo "Creating Docker Hub credentials file on server..."
