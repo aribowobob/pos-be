@@ -205,6 +205,52 @@ Main dependencies used in this project:
 - `chrono`: Date and time utilities
 - `dotenv`: Environment variable management
 
+## Deployment
+
+This project uses GitHub Actions for CI/CD deployment to a Digital Ocean droplet. The workflow is defined in `.github/workflows/prod.yml` and is triggered when a tag with format `v*` is pushed to the repository.
+
+### GitHub Actions Setup
+
+The workflow handles:
+
+1. Building a Docker image
+2. Pushing the image to Docker Hub
+3. Deploying the application to a Digital Ocean droplet using SSH
+4. Setting up and configuring the application environment
+
+### Required GitHub Secrets
+
+The following secrets need to be configured in your GitHub repository:
+
+- `DOCKER_USERNAME`: Docker Hub username
+- `DOCKER_PASSWORD`: Docker Hub password
+- `DROPLET_PASSWORD`: Password for the Digital Ocean droplet
+- `POSTGRES_PASSWORD`: Password for the PostgreSQL database
+- `DO_TOKEN`: Digital Ocean API token
+- `SSH_PRIVATE_KEY`: (Optional) SSH private key for secure connection to the droplet
+
+### Required GitHub Variables
+
+- `DROPLET_IP`: IP address of the Digital Ocean droplet
+
+### How to Deploy
+
+To deploy a new version:
+
+```bash
+# Tag a new version
+git tag v1.0.0
+
+# Push the tag to GitHub
+git push origin v1.0.0
+```
+
+The GitHub Actions workflow will automatically:
+
+1. Build the Docker image
+2. Tag it with the version number
+3. Deploy it to your Digital Ocean droplet
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.

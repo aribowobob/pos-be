@@ -8,7 +8,6 @@ on:
 env:
   DOCKER_IMAGE: aribowobob/pos-be
   DROPLET_IP: ${{ vars.DROPLET_IP }}
-  POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
 
 jobs:
   build-and-push:
@@ -31,6 +30,22 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Debug Docker credentials (secret names only, not values)
+        if: ${{ failure() }}
+        run: |
+          echo "Debug: Checking if DOCKER_USERNAME and DOCKER_PASSWORD secrets are available"
+          if [ "${{ secrets.DOCKER_USERNAME != '' }}" == "true" ]; then
+            echo "DOCKER_USERNAME is set"
+          else
+            echo "DOCKER_USERNAME is NOT set"
+          fi
+
+          if [ "${{ secrets.DOCKER_PASSWORD != '' }}" == "true" ]; then
+            echo "DOCKER_PASSWORD is set"
+          else
+            echo "DOCKER_PASSWORD is NOT set"
+          fi
+
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
@@ -52,10 +67,16 @@ jobs:
         id: tag
         run: echo "TAG=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      - name: Create SSH key
-        uses: webfactory/ssh-agent@v0.8.0
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
         with:
-          ssh-private-key: ${{ secrets.DO_TOKEN }}
+          token: ${{ secrets.DO_TOKEN }}
+
+      - name: Create SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY || secrets.DO_TOKEN }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
 
       - name: Setup SSH to ignore host key checking
         run: |
@@ -64,24 +85,32 @@ jobs:
 
       - name: Deploy to Digital Ocean Droplet
         env:
-          DROPLET_PASSWORD: ${{ secrets.DROPLET_PASSWORD }}
           TAG: ${{ steps.tag.outputs.TAG }}
         run: |
+          # Test SSH connection first
+          echo "Testing SSH connection to droplet..."
+          ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'SSH connection successful!'" || { echo "SSH connection failed"; exit 1; }
+
           # Create deployment directory
-          ssh root@${{ env.DROPLET_IP }} "mkdir -p /root/pos-app"
+          echo "Creating deployment directory..."
+          ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "mkdir -p /root/pos-app"
 
           # Copy docker-compose.yml to server
-          scp docker-compose.yml root@${{ env.DROPLET_IP }}:/root/pos-app/
+          echo "Copying docker-compose.yml to server..."
+          scp -o StrictHostKeyChecking=no docker-compose.yml root@${{ env.DROPLET_IP }}:/root/pos-app/
 
           # Create .env file on server
-          ssh root@${{ env.DROPLET_IP }} "cat > /root/pos-app/.env << 'EOF'
+          echo "Creating .env file on server..."
+          ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "cat > /root/pos-app/.env << 'EOF'
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
           JWT_SECRET=${{ secrets.JWT_SECRET || 'default_jwt_secret_for_production' }}
           FRONTEND_URL=https://your-frontend-url.com
           EOF"
 
           # Pull the latest image and restart containers
-          ssh root@${{ env.DROPLET_IP }} "cd /root/pos-app && \
+          echo "Pulling Docker images and restarting containers..."
+          ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "cd /root/pos-app && \
+            docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }} && \
             docker pull ${{ env.DOCKER_IMAGE }}:$TAG && \
             docker pull ${{ env.DOCKER_IMAGE }}:latest && \
             docker-compose down && \
