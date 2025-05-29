@@ -128,24 +128,24 @@ jobs:
       # Menggunakan metode yang lebih pasti untuk SSH ke droplet
       - name: Install sshpass
         run: sudo apt-get install -y sshpass
-      
+
       - name: Setup SSH Configuration
         run: |
           mkdir -p ~/.ssh
           echo -e "Host *\n\tStrictHostKeyChecking no\n\tUserKnownHostsFile /dev/null" > ~/.ssh/config
           chmod 600 ~/.ssh/config
-          
+
       - name: Deploy to Digital Ocean Droplet
         env:
           TAG: ${{ steps.tag.outputs.TAG }}
           SSH_PASSWORD: ${{ secrets.DROPLET_PASSWORD }}
         run: |
           export SSHPASS=$SSH_PASSWORD
-          
+
           # Test SSH connection first
           echo "Testing SSH connection to droplet..."
           sshpass -e ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'SSH connection successful!'" || { echo "SSH connection failed"; exit 1; }
-          
+
           # Create deployment directory
           echo "Creating deployment directory..."
           sshpass -e ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "mkdir -p /root/pos-app"
@@ -159,13 +159,15 @@ jobs:
           sshpass -e ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}' > /root/pos-app/.env"
           sshpass -e ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'JWT_SECRET=${{ secrets.JWT_SECRET || 'default_jwt_secret_for_production' }}' >> /root/pos-app/.env"
           sshpass -e ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'FRONTEND_URL=https://your-frontend-url.com' >> /root/pos-app/.env"
+          # Add multiple allowed origins for CORS
+          sshpass -e ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'FRONTEND_URLS=http://localhost:3000,https://your-frontend-url.com,${{ secrets.ADDITIONAL_CORS_ORIGINS || '' }}' >> /root/pos-app/.env"
 
           # Create Docker Hub credentials file on server with explicit base64 encoding
           echo "Creating Docker Hub credentials file on server..."
           DOCKER_AUTH=$(echo -n "${{ secrets.DOCKER_USERNAME }}:${{ secrets.DOCKER_PASSWORD }}" | base64)
           sshpass -e ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "mkdir -p /root/.docker"
           sshpass -e ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} 'echo '"'"'{"auths":{"https://index.docker.io/v1/":{"auth":"'"$DOCKER_AUTH"'"}}}'"'"' > /root/.docker/config.json'
-          
+
           # Pull the latest image and restart containers
           echo "Pulling Docker images and restarting containers..."
           sshpass -e ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "cd /root/pos-app && docker pull ${{ env.DOCKER_IMAGE }}:$TAG && docker pull ${{ env.DOCKER_IMAGE }}:latest && docker-compose down && docker-compose up -d"
@@ -175,20 +177,20 @@ jobs:
           SSH_PASSWORD: ${{ secrets.DROPLET_PASSWORD }}
         run: |
           export SSHPASS=$SSH_PASSWORD
-          
+
           echo "Waiting for service to start..."
           sleep 30
-          
+
           # Periksa status container
           echo "Checking container status:"
           sshpass -e ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "docker ps" || echo "Cannot check container status"
-          
+
           # Coba lakukan health check
           echo "Performing health check:"
           curl -sSf http://${{ env.DROPLET_IP }}:8080/api/health || echo "Health check failed but continuing"
-          
+
           # Periksa logs jika ada masalah
           echo "Checking container logs (last 10 lines):"
           sshpass -e ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "docker logs \$(docker ps -qf 'name=pos-app_api' 2>/dev/null || echo '') --tail 10" || echo "Cannot fetch logs"
-          
+
           echo "Deployment completed!"
