@@ -44,7 +44,7 @@ async fn main() -> io::Result<()> {
 
     // Get port from environment variable or use default 8080
     let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
-    let addr = format!("127.0.0.1:{}", port);
+    let addr = format!("0.0.0.0:{}", port);
     
     info!("Server starting at http://{}", addr);
 
