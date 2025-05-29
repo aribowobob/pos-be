@@ -33,6 +33,7 @@ pub struct UserWithStores {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(dead_code)]  // Allow unused fields as they are used indirectly during token verification
 pub struct UserInfo {
     pub email: String,
     pub name: Option<String>,

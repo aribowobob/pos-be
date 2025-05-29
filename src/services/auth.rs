@@ -9,50 +9,13 @@ use std::env;
 use uuid::Uuid;
 use chrono::{DateTime, Utc, NaiveDateTime};
 
+// Function moved to google_auth.rs
+// This function is kept here as a comment for historical reference
+/*
 pub async fn verify_google_token(token: &str) -> Result<UserInfo, Box<dyn std::error::Error>> {
-    let client = reqwest::Client::new();
-    match client
-        .get("https://www.googleapis.com/oauth2/v3/userinfo")
-        .bearer_auth(token)
-        .send()
-        .await
-    {
-        Ok(response) => {
-            if !response.status().is_success() {
-                let error_text = response.text().await?;
-                error!("Google API error: {}", error_text);
-                return Err(format!("Failed to verify token: {error_text}").into());
-            }
-
-            let response_text = response.text().await?;
-            info!("Google authentication successful");
-            debug!("Google API response: {}", response_text);
-
-            match serde_json::from_str::<UserInfo>(&response_text) {
-                Ok(mut user_info) => {
-                    debug!(
-                        "Successfully parsed user info for email: {}",
-                        user_info.email
-                    );
-                    // Set default values for fields that are not from Google
-                    user_info.id = 0; // This will be populated from the database when found
-                    user_info.full_name = user_info.name.clone().unwrap_or_default();
-                    user_info.company_id = 0; // This will be populated from the database when found
-
-                    Ok(user_info)
-                }
-                Err(e) => {
-                    error!("Failed to parse user info: {}", e);
-                    Err(Box::new(e))
-                }
-            }
-        }
-        Err(e) => {
-            error!("Request to Google API failed: {}", e);
-            Err(Box::new(e))
-        }
-    }
+    // Implementation moved to crate::services::google_auth::verify_google_token
 }
+*/
 
 #[must_use]
 pub fn create_jwt(user_info: &UserInfo) -> String {

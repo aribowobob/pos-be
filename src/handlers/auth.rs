@@ -1,5 +1,5 @@
 use crate::models::{response::ApiResponse, AppState};
-use crate::services::auth::{create_jwt, get_user_by_email, verify_google_token};
+use crate::services::auth::{create_jwt, get_user_by_email};
 use crate::services::db_service::DbConnectionManager;
 use actix_web::{cookie::Cookie, web, HttpResponse};
 use log::{error, info, debug};
@@ -44,8 +44,8 @@ pub async fn google_login(
 
     let environment = env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string());
     
-    // Verify Google token
-    let user_info_result = verify_google_token(&token_req.access_token).await;
+    // Verify Google token using the improved verification function
+    let user_info_result = crate::services::google_auth::verify_google_token(&token_req.access_token).await;
 
     match user_info_result {
         Ok(user_info) => {
