@@ -41,8 +41,6 @@ pub async fn google_login(
     data: web::Data<AppState>,
 ) -> HttpResponse {
     info!("Processing Google login");
-
-    let environment = env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string());
     
     // Verify Google token using the improved verification function
     let user_info_result = crate::services::google_auth::verify_google_token(&token_req.access_token).await;
@@ -73,16 +71,26 @@ pub async fn google_login(
                     // Create JWT token
                     let token = create_jwt(&user_info);
                     
-                    // Set secure flag based on environment
-                    let is_secure = environment != "development";
+                    // Detect if we're using HTTPS by checking environment or configuration
+                    // For development on plain HTTP, we can't use Secure attribute
+                    let is_https = env::var("USE_HTTPS").unwrap_or_else(|_| "false".to_string()) == "true";
                     
-                    // Create cookie with the JWT token
-                    let cookie = Cookie::build("access_token", token.clone())
+                    // Build cookie with appropriate settings
+                    let mut cookie_builder = Cookie::build("access_token", token.clone())
                         .path("/")
                         .max_age(Duration::hours(24)) // Use time::Duration::hours
                         .http_only(true)
-                        .secure(is_secure)
-                        .finish();
+                        .same_site(actix_web::cookie::SameSite::None); // Required for cross-site requests
+                    
+                    // Only set secure flag if using HTTPS
+                    if is_https {
+                        cookie_builder = cookie_builder.secure(true);
+                    } else {
+                        info!("Using non-secure cookies because connection is not HTTPS");
+                    }
+                        
+                    // Create cookie with the JWT token
+                    let cookie = cookie_builder.finish();
                     
                     // Return successful response with cookie
                     HttpResponse::Ok()
@@ -119,13 +127,22 @@ pub async fn google_login(
 }
 
 pub async fn logout() -> HttpResponse {
-    // Create a cookie with the same name but empty value and immediate expiration
-    let cookie = Cookie::build("access_token", "")
+    // Detect if we're using HTTPS by checking environment or configuration
+    let is_https = env::var("USE_HTTPS").unwrap_or_else(|_| "false".to_string()) == "true";
+    
+    // Build cookie with appropriate settings
+    let mut cookie_builder = Cookie::build("access_token", "")
         .path("/")
         .max_age(Duration::seconds(0)) // Use time::Duration::seconds instead
         .http_only(true)
-        .secure(true)
-        .finish();
+        .same_site(actix_web::cookie::SameSite::None); // Consistent with login cookie
+    
+    // Only set secure flag if using HTTPS
+    if is_https {
+        cookie_builder = cookie_builder.secure(true);
+    }
+    
+    let cookie = cookie_builder.finish();
 
     HttpResponse::Ok()
         .cookie(cookie)

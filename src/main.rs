@@ -67,13 +67,19 @@ async fn main() -> io::Result<()> {
                 header::CONTENT_TYPE,
                 header::ACCEPT,
                 header::ORIGIN,
+                header::SET_COOKIE,
+                header::COOKIE,
             ])
-            .expose_headers(vec!["content-length"])
-            .supports_credentials()
+            .expose_headers(vec![
+                "content-length",
+                "Set-Cookie",
+            ])
+            .supports_credentials() // This enables cookies, authorization headers and TLS certificates
             .max_age(3600);
             
         // Add each allowed origin to CORS configuration
         for origin in &frontend_urls {
+            info!("Adding allowed origin: {}", origin);
             cors = cors.allowed_origin(origin);
         }
 
