@@ -5,7 +5,7 @@ services:
       DATABASE_URL: "postgres://postgres:${POSTGRES_PASSWORD}@db:5432/pos_db"
       JWT_SECRET: ${JWT_SECRET}
       ENVIRONMENT: "production"
-      FRONTEND_URL: ${FRONTEND_URL}
+      FRONTEND_URLS: ${FRONTEND_URLS}
       PORT: 8080
     build:
       context: .

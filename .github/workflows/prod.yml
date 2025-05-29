@@ -158,9 +158,8 @@ jobs:
           echo "Creating .env file on server..."
           sshpass -e ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}' > /root/pos-app/.env"
           sshpass -e ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'JWT_SECRET=${{ secrets.JWT_SECRET || 'default_jwt_secret_for_production' }}' >> /root/pos-app/.env"
-          sshpass -e ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'FRONTEND_URL=https://your-frontend-url.com' >> /root/pos-app/.env"
-          # Add multiple allowed origins for CORS
-          sshpass -e ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'FRONTEND_URLS=http://localhost:3000,https://your-frontend-url.com,${{ secrets.ADDITIONAL_CORS_ORIGINS || '' }}' >> /root/pos-app/.env"
+          # Set FRONTEND_URLS from repository variables or provide a fallback
+          sshpass -e ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'FRONTEND_URLS=${{ vars.FRONTEND_URLS || 'http://localhost:3000,https://your-production-url.com,https://staging-url.com' }}' >> /root/pos-app/.env"
 
           # Create Docker Hub credentials file on server with explicit base64 encoding
           echo "Creating Docker Hub credentials file on server..."

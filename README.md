@@ -65,7 +65,7 @@ JWT_SECRET=your_jwt_secret_here
 
 # Application settings
 ENVIRONMENT=development
-FRONTEND_URL=http://localhost:3000
+FRONTEND_URLS=http://localhost:3000,https://your-production-url.com
 PORT=8080
 ```
 

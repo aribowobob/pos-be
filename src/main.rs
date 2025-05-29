@@ -42,13 +42,7 @@ async fn main() -> io::Result<()> {
     let frontend_urls: Vec<String> = env::var("FRONTEND_URLS")
         .unwrap_or_else(|_| {
             // Default: allow both localhost and the production URL
-            let default_urls = "http://localhost:3000,https://your-frontend-url.com";
-            // Also include FRONTEND_URL if set
-            if let Ok(url) = env::var("FRONTEND_URL") {
-                format!("{},{}", default_urls, url)
-            } else {
-                default_urls.to_string()
-            }
+            "http://localhost:3000,https://your-production-url.com,https://staging-url.com".to_string()
         })
         .split(',')
         .map(|s| s.trim().to_string())
