@@ -33,4 +33,4 @@ Thumbs.db
 *.key
 
 # Db files
-*.sql
+# *.sql
