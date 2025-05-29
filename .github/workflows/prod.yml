@@ -10,9 +10,40 @@ env:
   DROPLET_IP: ${{ vars.DROPLET_IP }}
 
 jobs:
+  check-secrets:
+    name: Check Required Secrets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Docker Credentials
+        id: check-secrets
+        run: |
+          echo "Checking required secrets..."
+          # Secara aman memeriksa apakah secrets ada
+          if [ -z "${{ secrets.DOCKER_USERNAME }}" ]; then
+            echo "::error::DOCKER_USERNAME secret is not set. Please add it in repository settings."
+            exit 1
+          fi
+
+          if [ -z "${{ secrets.DOCKER_PASSWORD }}" ]; then
+            echo "::error::DOCKER_PASSWORD secret is not set. Please add it in repository settings."
+            exit 1
+          fi
+
+          if [ -z "${{ vars.DROPLET_IP }}" ]; then
+            echo "::error::DROPLET_IP variable is not set. Please add it in repository settings."
+            exit 1
+          fi
+
+          if [ -z "${{ secrets.DO_TOKEN }}" ]; then
+            echo "::warning::DO_TOKEN secret is not set. SSH access may be affected."
+          fi
+
+          echo "All required secrets are available."
+
   build-and-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
+    needs: check-secrets
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -24,29 +55,52 @@ jobs:
         id: tag
         run: echo "TAG=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
+      # Coba menggunakan variabel langsung tanpa tindakan login khusus
       - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Debug Docker credentials (secret names only, not values)
-        if: ${{ failure() }}
         run: |
-          echo "Debug: Checking if DOCKER_USERNAME and DOCKER_PASSWORD secrets are available"
-          if [ "${{ secrets.DOCKER_USERNAME != '' }}" == "true" ]; then
+          echo "Logging in to Docker Hub..."
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      - name: Debug Docker credentials
+        if: ${{ always() }}
+        run: |
+          echo "Debug: Checking Docker Hub login status"
+          if docker info > /dev/null 2>&1; then
+            echo "Docker is running and connected"
+          else
+            echo "Docker has issues connecting"
+          fi
+
+          echo "Debug: Checking if DOCKER_USERNAME and DOCKER_PASSWORD secrets exist"
+          # Secara aman memeriksa keberadaan secrets tanpa mengekspos nilai
+          if [ -n "${{ secrets.DOCKER_USERNAME }}" ]; then
             echo "DOCKER_USERNAME is set"
           else
             echo "DOCKER_USERNAME is NOT set"
           fi
 
-          if [ "${{ secrets.DOCKER_PASSWORD != '' }}" == "true" ]; then
+          if [ -n "${{ secrets.DOCKER_PASSWORD }}" ]; then
             echo "DOCKER_PASSWORD is set"
           else
             echo "DOCKER_PASSWORD is NOT set"
           fi
 
-      - name: Build and push
+      - name: Check Docker Login Status
+        id: login-status
+        continue-on-error: true
+        run: docker info > /dev/null 2>&1
+
+      - name: Build and push without registry cache
+        if: ${{ failure() && steps.login-status.outcome == 'failure' }}
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: false
+          load: true
+          tags: ${{ env.DOCKER_IMAGE }}:latest,${{ env.DOCKER_IMAGE }}:${{ steps.tag.outputs.TAG }}
+
+      - name: Build and push with registry cache
+        if: ${{ steps.login-status.outcome == 'success' }}
         uses: docker/build-push-action@v4
         with:
           context: .
@@ -107,10 +161,21 @@ jobs:
           FRONTEND_URL=https://your-frontend-url.com
           EOF"
 
+          # Create Docker Hub credentials file on server
+          echo "Creating Docker Hub credentials file on server..."
+          ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "mkdir -p /root/.docker && cat > /root/.docker/config.json << 'EOF'
+          {
+            \"auths\": {
+              \"https://index.docker.io/v1/\": {
+                \"auth\": \"$(echo -n ${{ secrets.DOCKER_USERNAME }}:${{ secrets.DOCKER_PASSWORD }} | base64)\"
+              }
+            }
+          }
+          EOF"
+
           # Pull the latest image and restart containers
           echo "Pulling Docker images and restarting containers..."
           ssh -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "cd /root/pos-app && \
-            docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }} && \
             docker pull ${{ env.DOCKER_IMAGE }}:$TAG && \
             docker pull ${{ env.DOCKER_IMAGE }}:latest && \
             docker-compose down && \
