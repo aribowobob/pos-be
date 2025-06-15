@@ -1,19 +1,18 @@
 use actix_web::web;
+use crate::handlers::product::get_product_categories;
+use crate::middleware::skip_auth::SkipAuth;
 
-// Remove the unused functions and leave only the configure function
-pub fn configure(_cfg: &mut web::ServiceConfig) {
-    // Products routes will be implemented in the future
-    // Example implementation (commented out until needed):
-    /*
-    _cfg.service(
+pub fn configure(cfg: &mut web::ServiceConfig) {
+    cfg.service(
         web::scope("/products")
-            .route("", web::get().to(get_all_products))
-            .route("/{id}", web::get().to(get_product_by_id))
+            .route("/categories", web::get().to(get_product_categories).wrap(SkipAuth))
+            // The following routes are for future implementation
+            // .route("", web::get().to(get_all_products))
+            // .route("/{id}", web::get().to(get_product_by_id))
     );
-    */
 }
 
-// When needed, uncomment and implement these functions:
+// Future implementation placeholders:
 /*
 async fn get_all_products() -> impl Responder {
     HttpResponse::Ok().json(serde_json::json!({

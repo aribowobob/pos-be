@@ -10,6 +10,7 @@ pub enum ServiceError {
     Unauthorized,
     DatabaseConnectionError,
     DatabaseQueryError(String),
+    DatabaseError(String),
     NotFound,
 }
 
@@ -28,6 +29,7 @@ impl fmt::Display for ServiceError {
             ServiceError::Unauthorized => write!(f, "Unauthorized"),
             ServiceError::DatabaseConnectionError => write!(f, "Could not connect to database"),
             ServiceError::DatabaseQueryError(msg) => write!(f, "Database error: {}", msg),
+            ServiceError::DatabaseError(msg) => write!(f, "Database error: {}", msg),
             ServiceError::NotFound => write!(f, "Resource not found"),
         }
     }
@@ -71,6 +73,13 @@ impl ResponseError for ServiceError {
                     error_code: Some("database_error".to_string()),
                 })
             }
+            ServiceError::DatabaseError(_) => {
+                HttpResponse::InternalServerError().json(ErrorResponse {
+                    message: "An error occurred while processing your database request".to_string(),
+                    status: "error".to_string(),
+                    error_code: Some("database_error".to_string()),
+                })
+            }
             ServiceError::NotFound => {
                 HttpResponse::NotFound().json(ErrorResponse {
                     message: self.to_string(),
@@ -88,6 +97,7 @@ impl ResponseError for ServiceError {
             ServiceError::Unauthorized => StatusCode::UNAUTHORIZED,
             ServiceError::DatabaseConnectionError => StatusCode::SERVICE_UNAVAILABLE,
             ServiceError::DatabaseQueryError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ServiceError::DatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ServiceError::NotFound => StatusCode::NOT_FOUND,
         }
     }
