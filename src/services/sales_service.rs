@@ -336,10 +336,10 @@ pub async fn create_sales_order(
         acc + (item.sale_price * Decimal::new(item.qty as i64, 0))
     });
 
-    // 3. Calculate receivable (payment_cash + payment_non_cash - grand_total)
+    // 3. Calculate receivable (grand_total - payment_cash - payment_non_cash)
     let total_payment = order_request.payment_cash + order_request.payment_non_cash;
-    let receivable = if total_payment > grand_total {
-        total_payment - grand_total
+    let receivable = if grand_total > total_payment {
+        grand_total - total_payment
     } else {
         Decimal::new(0, 0)
     };
