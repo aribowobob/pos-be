@@ -1,0 +1,82 @@
+use crate::errors::ServiceError;
+use crate::models::sales::{SalesCart, NewSalesCart};
+use crate::services::db_service::DbConnectionManager;
+use sqlx::Row;
+use log::{error, info};
+
+pub async fn add_to_cart(
+    db_manager: &DbConnectionManager,
+    new_cart_item: NewSalesCart,
+    user_id: i32, // User ID from authentication
+) -> Result<SalesCart, ServiceError> {
+    let pool = match db_manager.get_pool().await {
+        Ok(pool) => pool,
+        Err(e) => {
+            error!("Failed to get database connection: {:?}", e);
+            return Err(ServiceError::DatabaseConnectionError);
+        }
+    };
+
+    // Calculate sales price if not provided
+    let sale_price = new_cart_item.sale_price.unwrap_or_else(|| {
+        let discount_type = new_cart_item.discount_type.as_deref().unwrap_or("fixed");
+        let discount_value = new_cart_item.discount_value.unwrap_or(0);
+        let discount_amount = new_cart_item.discount_amount.unwrap_or_else(|| {
+            if discount_type == "percentage" && discount_value > 0 {
+                new_cart_item.base_price * rust_decimal::Decimal::new(discount_value as i64, 2)
+            } else {
+                rust_decimal::Decimal::new(discount_value as i64, 0)
+            }
+        });
+        
+        new_cart_item.base_price - discount_amount
+    });
+
+    // Execute query to insert new cart item
+    let cart_item = match sqlx::query(
+        "INSERT INTO sales_cart (
+            user_id, store_id, product_id, base_price, qty, 
+            discount_type, discount_value, discount_amount, sale_price, 
+            created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+        RETURNING id, user_id, store_id, product_id, base_price, qty, 
+                 discount_type, discount_value, discount_amount, sale_price, 
+                 created_at, updated_at"
+    )
+    .bind(user_id) // Authenticated user ID
+    .bind(new_cart_item.store_id)
+    .bind(new_cart_item.product_id)
+    .bind(&new_cart_item.base_price)
+    .bind(new_cart_item.qty)
+    .bind(new_cart_item.discount_type.unwrap_or_else(|| "fixed".to_string()))
+    .bind(new_cart_item.discount_value.unwrap_or(0))
+    .bind(new_cart_item.discount_amount.unwrap_or_else(|| rust_decimal::Decimal::new(0, 0)))
+    .bind(sale_price)
+    .try_map(|row: sqlx::postgres::PgRow| {
+        Ok(SalesCart {
+            id: row.try_get("id")?,
+            user_id: row.try_get("user_id")?,
+            store_id: row.try_get("store_id")?,
+            product_id: row.try_get("product_id")?,
+            base_price: row.try_get("base_price")?,
+            qty: row.try_get("qty")?,
+            discount_type: row.try_get("discount_type")?,
+            discount_value: row.try_get("discount_value")?,
+            discount_amount: row.try_get("discount_amount")?,
+            sale_price: row.try_get("sale_price")?,
+            created_at: row.try_get("created_at")?,
+            updated_at: row.try_get("updated_at")?,
+        })
+    })
+    .fetch_one(&pool)
+    .await {
+        Ok(cart_item) => cart_item,
+        Err(e) => {
+            error!("Database error while adding to cart: {}", e);
+            return Err(ServiceError::DatabaseError(e.to_string()));
+        }
+    };
+
+    info!("Item added to cart successfully with ID: {}", cart_item.id);
+    Ok(cart_item)
+}
