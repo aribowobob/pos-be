@@ -85,3 +85,47 @@ pub async fn delete_from_cart(
         }
     }
 }
+
+pub async fn get_cart_items(
+    req: HttpRequest,
+    data: web::Data<AppState>,
+    query: web::Query<GetCartQuery>,
+) -> HttpResponse {
+    info!("Processing get_cart_items request for store_id: {}", query.store_id);
+    
+    // Create database connection manager
+    let db_manager = DbConnectionManager::new(data.db_connection_string.clone());
+    
+    // Extract authentication using our helper function
+    let auth_result = crate::middleware::extract_auth::extract_auth_user(&req, &db_manager).await;
+    
+    // Handle authentication result
+    let (user, _company_id) = match auth_result {
+        Ok((user, company_id)) => {
+            info!("User authenticated: {} (company_id: {})", user.email, company_id);
+            (user, company_id)
+        },
+        Err(e) => {
+            error!("Authentication failed: {:?}", e);
+            return HttpResponse::Unauthorized().json(ApiResponse::<()>::error(&format!("Authentication failed: {}", e)));
+        }
+    };
+    
+    // Process the request with the authenticated user's ID
+    match sales_service::get_cart_items(&db_manager, user.id, query.store_id).await {
+        Ok(cart_items) => {
+            info!("Retrieved {} cart items for user ID: {}", cart_items.len(), user.id);
+            HttpResponse::Ok().json(ApiResponse::success(cart_items))
+        },
+        Err(e) => {
+            error!("Failed to retrieve cart items: {:?}", e);
+            HttpResponse::InternalServerError().json(ApiResponse::<()>::error(&format!("Failed to retrieve cart items: {}", e)))
+        }
+    }
+}
+
+// Query parameters struct for get_cart_items
+#[derive(serde::Deserialize)]
+pub struct GetCartQuery {
+    pub store_id: i32,
+}

@@ -121,3 +121,56 @@ pub async fn delete_from_cart(
     
     Ok(deleted)
 }
+
+pub async fn get_cart_items(
+    db_manager: &DbConnectionManager,
+    user_id: i32,
+    store_id: i32,
+) -> Result<Vec<SalesCart>, ServiceError> {
+    let pool = match db_manager.get_pool().await {
+        Ok(pool) => pool,
+        Err(e) => {
+            error!("Failed to get database connection: {:?}", e);
+            return Err(ServiceError::DatabaseConnectionError);
+        }
+    };
+
+    // Execute query to get all cart items for the user and store
+    let cart_items = match sqlx::query(
+        "SELECT id, user_id, store_id, product_id, base_price, qty, 
+                discount_type, discount_value, discount_amount, sale_price, 
+                created_at, updated_at 
+         FROM sales_cart 
+         WHERE user_id = $1 AND store_id = $2 
+         ORDER BY created_at DESC"
+    )
+    .bind(user_id)
+    .bind(store_id)
+    .try_map(|row: sqlx::postgres::PgRow| {
+        Ok(SalesCart {
+            id: row.try_get("id")?,
+            user_id: row.try_get("user_id")?,
+            store_id: row.try_get("store_id")?,
+            product_id: row.try_get("product_id")?,
+            base_price: row.try_get("base_price")?,
+            qty: row.try_get("qty")?,
+            discount_type: row.try_get("discount_type")?,
+            discount_value: row.try_get("discount_value")?,
+            discount_amount: row.try_get("discount_amount")?,
+            sale_price: row.try_get("sale_price")?,
+            created_at: row.try_get("created_at")?,
+            updated_at: row.try_get("updated_at")?,
+        })
+    })
+    .fetch_all(&pool)
+    .await {
+        Ok(items) => items,
+        Err(e) => {
+            error!("Database error while fetching cart items: {}", e);
+            return Err(ServiceError::DatabaseError(e.to_string()));
+        }
+    };
+
+    info!("Retrieved {} cart items for user {} in store {}", cart_items.len(), user_id, store_id);
+    Ok(cart_items)
+}

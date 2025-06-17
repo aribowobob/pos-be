@@ -7,6 +7,7 @@ pub fn config(cfg: &mut web::ServiceConfig) {
             .service(
                 web::resource("/cart")
                     .route(web::post().to(sales::add_to_cart))
+                    .route(web::get().to(sales::get_cart_items))  // Add GET route for fetching cart items
             )
             .service(
                 web::resource("/cart/{id}")
