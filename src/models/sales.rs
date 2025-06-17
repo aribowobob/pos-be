@@ -84,6 +84,46 @@ pub struct OrderResponse {
     pub details: Vec<SalesOrderDetail>,
 }
 
+// Enhanced OrderResponse with more details
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DetailedOrderResponse {
+    pub order: DetailedSalesOrder,
+    pub details: Vec<DetailedSalesOrderDetail>,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct DetailedSalesOrder {
+    pub id: i32,
+    pub order_number: String,
+    pub user_id: i32,
+    pub user_initial: String,
+    pub store_id: i32,
+    pub store_initial: String,
+    pub date: NaiveDate,
+    pub grand_total: Decimal,
+    pub payment_cash: Decimal,
+    pub payment_non_cash: Decimal,
+    pub receivable: Decimal,
+    pub created_at: DateTime<Utc>,
+    pub customer_id: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct DetailedSalesOrderDetail {
+    pub id: i32,
+    pub order_id: i32,
+    pub product_id: i32,
+    pub product_name: String, // Added field for product name
+    pub sku: String, // Added field for product SKU
+    pub qty: i32,
+    pub base_price: Decimal,
+    pub discount_type: String,
+    pub discount_value: Decimal,
+    pub discount_amount: Decimal,
+    pub sale_price: Decimal,
+    pub total_price: Decimal,
+}
+
 // Sales Report models moved from sales_report.rs
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SalesReportQuery {

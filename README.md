@@ -131,12 +131,6 @@ cargo build --release
 
 ## API Documentation
 
-The API provides the following endpoints:
-
-- **Auth**: `/api/auth/*` - Authentication endpoints
-- **Users**: `/api/users/*` - User management
-- **Products**: `/api/products/*` - Product management
-- **Orders**: `/api/orders/*` - Order management
 - **Health**: `/health` - Health check endpoint
 - **Database Migration**: `/db-migration` - Create or migrate database tables
 
@@ -157,40 +151,6 @@ The migration endpoint is public and can be accessed without authentication:
 ```bash
 curl http://localhost:8080/db-migration
 ```
-
-### Adding New Migrations
-
-To add new database changes:
-
-1. Create a new SQL file in the `src/db_migration/` directory with a numeric prefix (e.g., `004_new_feature.sql`)
-2. Use standard SQL and/or PL/pgSQL statements
-3. For PL/pgSQL blocks, use named delimiters:
-   ```sql
-   DO $block$
-   BEGIN
-     -- Your PL/pgSQL code here
-   END $block$;
-   ```
-4. Use conditional statements to avoid errors when objects already exist:
-
-   ```sql
-   -- For tables
-   CREATE TABLE IF NOT EXISTS my_table (...);
-
-   -- For columns
-   DO $block$
-   BEGIN
-    IF NOT EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_name = 'my_table' AND column_name = 'new_column'
-    ) THEN
-        ALTER TABLE my_table ADD COLUMN new_column TEXT;
-    END IF;
-   END $block$;
-   ```
-
-The migration system automatically handles most common errors like "table already exists" or "duplicate key violations" and continues processing other statements.
 
 ## Dependencies
 

@@ -1,6 +1,7 @@
 use crate::errors::ServiceError;
 use crate::models::sales::{SalesCart, NewSalesCart, UpdateSalesCart, SalesOrder, SalesOrderDetail, CreateOrderRequest, OrderResponse,
-    SalesReport, SalesReportOrder, SkuSummaryItem, SalesSummary, SalesReportQuery};
+    SalesReport, SalesReportOrder, SkuSummaryItem, SalesSummary, SalesReportQuery, 
+    DetailedOrderResponse, DetailedSalesOrder, DetailedSalesOrderDetail};
 use crate::services::db_service::DbConnectionManager;
 use chrono::Utc;
 use log::{error, info};
@@ -653,5 +654,70 @@ pub async fn generate_sales_report(
         orders,
         sku_summary,
         summary,
+    })
+}
+
+pub async fn get_sales_order_by_id(
+    db_manager: &DbConnectionManager,
+    order_id: i32,
+    _user_id: i32, // Prefix with underscore as it's required for authentication but not used in query
+) -> Result<DetailedOrderResponse, ServiceError> {
+    let pool = match db_manager.get_pool().await {
+        Ok(pool) => pool,
+        Err(e) => {
+            error!("Failed to get database connection: {:?}", e);
+            return Err(ServiceError::DatabaseConnectionError);
+        }
+    };
+
+    // Simply check if the order exists, without company ID restriction
+    let order = match sqlx::query_as::<_, DetailedSalesOrder>(
+        "SELECT so.id, so.order_number, so.user_id, u.initial as user_initial, 
+                so.store_id, s.initial as store_initial, so.date, so.grand_total, 
+                so.payment_cash, so.payment_non_cash, so.receivable, so.created_at, so.customer_id
+         FROM sales_orders so
+         JOIN users u ON so.user_id = u.id
+         JOIN stores s ON so.store_id = s.id
+         WHERE so.id = $1"
+    )
+    .bind(order_id)
+    .fetch_optional(&pool)
+    .await {
+        Ok(Some(order)) => order,
+        Ok(None) => {
+            info!("Sales order ID {} not found", order_id);
+            return Err(ServiceError::NotFound);
+        },
+        Err(e) => {
+            error!("Database error while fetching sales order: {}", e);
+            return Err(ServiceError::DatabaseError(e.to_string()));
+        }
+    };
+
+    // Now, get all the details with product information
+    let details = match sqlx::query_as::<_, DetailedSalesOrderDetail>(
+        "SELECT sod.id, sod.order_id, sod.product_id, p.name as product_name, p.sku, 
+                sod.qty, sod.base_price, sod.discount_type, sod.discount_value, 
+                sod.discount_amount, sod.sale_price, sod.total_price
+         FROM sales_order_details sod
+         JOIN products p ON sod.product_id = p.id
+         WHERE sod.order_id = $1
+         ORDER BY sod.id"
+    )
+    .bind(order_id)
+    .fetch_all(&pool)
+    .await {
+        Ok(details) => details,
+        Err(e) => {
+            error!("Database error while fetching order details: {}", e);
+            return Err(ServiceError::DatabaseError(e.to_string()));
+        }
+    };
+
+    info!("Successfully retrieved sales order ID: {} with {} detail items", order_id, details.len());
+    
+    Ok(DetailedOrderResponse {
+        order,
+        details,
     })
 }

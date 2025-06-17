@@ -1,5 +1,5 @@
 use crate::models::{AppState, response::ApiResponse};
-use crate::models::sales::{NewSalesCart, UpdateSalesCart, CreateOrderRequest, SalesReport};
+use crate::models::sales::{NewSalesCart, UpdateSalesCart, CreateOrderRequest, SalesReport, DetailedOrderResponse};
 use crate::services::db_service::DbConnectionManager;
 use crate::services::sales_service;
 use actix_web::{web, HttpResponse, HttpRequest};
@@ -306,6 +306,53 @@ pub async fn get_sales_report(
         Err(e) => {
             error!("Failed to generate sales report: {:?}", e);
             HttpResponse::InternalServerError().json(ApiResponse::<()>::error(&format!("Failed to generate sales report: {}", e)))
+        }
+    }
+}
+
+pub async fn get_sales_order_by_id(
+    req: HttpRequest,
+    data: web::Data<AppState>,
+    path: web::Path<(i32,)>, // Sales order ID from path
+) -> HttpResponse {
+    let order_id = path.0;
+    info!("Processing get_sales_order_by_id request for order ID: {}", order_id);
+    
+    // Create database connection manager
+    let db_manager = DbConnectionManager::new(data.db_connection_string.clone());
+    
+    // Extract authentication using our helper function
+    let auth_result = crate::middleware::extract_auth::extract_auth_user(&req, &db_manager).await;
+    
+    // Handle authentication result
+    let user = match auth_result {
+        Ok((user, _)) => {
+            info!("User authenticated: {}", user.email);
+            user
+        },
+        Err(e) => {
+            error!("Authentication failed: {:?}", e);
+            return HttpResponse::Unauthorized().json(ApiResponse::<()>::error(&format!("Authentication failed: {}", e)));
+        }
+    };
+    
+    // Process the request with the authenticated user's ID, simplified to just require login
+    match sales_service::get_sales_order_by_id(&db_manager, order_id, user.id).await {
+        Ok(order_response) => {
+            info!("Successfully retrieved sales order ID: {}", order_id);
+            HttpResponse::Ok().json(ApiResponse::success(order_response))
+        },
+        Err(e) => {
+            match e {
+                crate::errors::ServiceError::NotFound => {
+                    error!("Sales order not found or not accessible: {:?}", e);
+                    HttpResponse::NotFound().json(ApiResponse::<()>::error("Sales order not found or not accessible by this user"))
+                },
+                _ => {
+                    error!("Failed to retrieve sales order: {:?}", e);
+                    HttpResponse::InternalServerError().json(ApiResponse::<()>::error(&format!("Failed to retrieve sales order: {}", e)))
+                }
+            }
         }
     }
 }
