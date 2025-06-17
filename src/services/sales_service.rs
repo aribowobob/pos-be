@@ -253,3 +253,44 @@ pub async fn update_cart_item(
     info!("Successfully updated cart item with ID: {} for user: {}", cart_item_id, user_id);
     Ok(updated_item)
 }
+
+pub async fn clear_cart(
+    db_manager: &DbConnectionManager,
+    user_id: i32, // User ID from authentication
+    store_id: i32,
+) -> Result<bool, ServiceError> {
+    let pool = match db_manager.get_pool().await {
+        Ok(pool) => pool,
+        Err(e) => {
+            error!("Failed to get database connection: {:?}", e);
+            return Err(ServiceError::DatabaseConnectionError);
+        }
+    };
+
+    // Execute query to delete all cart items for this user and store
+    let result = match sqlx::query(
+        "DELETE FROM sales_cart 
+         WHERE user_id = $1 AND store_id = $2"
+    )
+    .bind(user_id)
+    .bind(store_id)
+    .execute(&pool)
+    .await {
+        Ok(result) => result,
+        Err(e) => {
+            error!("Database error while clearing cart: {}", e);
+            return Err(ServiceError::DatabaseError(e.to_string()));
+        }
+    };
+
+    // Check if any row was affected
+    let deleted = result.rows_affected() > 0;
+    
+    if deleted {
+        info!("Successfully cleared cart for user: {} in store: {}", user_id, store_id);
+    } else {
+        info!("No cart items found for user: {} in store: {}", user_id, store_id);
+    }
+    
+    Ok(deleted)
+}

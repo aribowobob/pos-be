@@ -168,3 +168,52 @@ pub async fn update_cart_item(
 pub struct GetCartQuery {
     pub store_id: i32,
 }
+
+// Query parameters struct for clear_cart
+#[derive(serde::Deserialize)]
+pub struct ClearCartQuery {
+    pub store_id: i32,
+}
+
+pub async fn clear_cart(
+    req: HttpRequest,
+    data: web::Data<AppState>,
+    query: web::Query<ClearCartQuery>,
+) -> HttpResponse {
+    info!("Processing clear_cart request for store_id: {}", query.store_id);
+    
+    // Create database connection manager
+    let db_manager = DbConnectionManager::new(data.db_connection_string.clone());
+    
+    // Extract authentication using our helper function
+    let auth_result = crate::middleware::extract_auth::extract_auth_user(&req, &db_manager).await;
+    
+    // Handle authentication result
+    let (user, _company_id) = match auth_result {
+        Ok((user, company_id)) => {
+            info!("User authenticated: {} (company_id: {})", user.email, company_id);
+            (user, company_id)
+        },
+        Err(e) => {
+            error!("Authentication failed: {:?}", e);
+            return HttpResponse::Unauthorized().json(ApiResponse::<()>::error(&format!("Authentication failed: {}", e)));
+        }
+    };
+    
+    // Process the request with the authenticated user's ID and store_id
+    match sales_service::clear_cart(&db_manager, user.id, query.store_id).await {
+        Ok(cleared) => {
+            if cleared {
+                info!("Cart cleared successfully for user ID: {} in store ID: {}", user.id, query.store_id);
+                HttpResponse::Ok().json(ApiResponse::success("Cart cleared successfully"))
+            } else {
+                info!("No cart items found for user ID: {} in store ID: {}", user.id, query.store_id);
+                HttpResponse::Ok().json(ApiResponse::success("No items to clear"))
+            }
+        },
+        Err(e) => {
+            error!("Failed to clear cart: {:?}", e);
+            HttpResponse::InternalServerError().json(ApiResponse::<()>::error(&format!("Failed to clear cart: {}", e)))
+        }
+    }
+}

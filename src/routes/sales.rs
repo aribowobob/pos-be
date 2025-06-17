@@ -10,6 +10,10 @@ pub fn config(cfg: &mut web::ServiceConfig) {
                     .route(web::get().to(sales::get_cart_items))  // Add GET route for fetching cart items
             )
             .service(
+                web::resource("/cart/clear")
+                    .route(web::delete().to(sales::clear_cart))  // Add DELETE route for clearing cart
+            )
+            .service(
                 web::resource("/cart/{id}")
                     .route(web::delete().to(sales::delete_from_cart))
                     .route(web::put().to(sales::update_cart_item))
