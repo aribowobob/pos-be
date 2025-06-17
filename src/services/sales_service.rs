@@ -1,5 +1,5 @@
 use crate::errors::ServiceError;
-use crate::models::sales::{SalesCart, NewSalesCart};
+use crate::models::sales::{SalesCart, NewSalesCart, UpdateSalesCart};
 use crate::services::db_service::DbConnectionManager;
 use log::{error, info};
 use sqlx::Row;
@@ -173,4 +173,83 @@ pub async fn get_cart_items(
 
     info!("Retrieved {} cart items for user {} in store {}", cart_items.len(), user_id, store_id);
     Ok(cart_items)
+}
+
+pub async fn update_cart_item(
+    db_manager: &DbConnectionManager,
+    cart_item_id: i32,
+    user_id: i32, // User ID from authentication
+    update_data: UpdateSalesCart,
+) -> Result<SalesCart, ServiceError> {
+    let pool = match db_manager.get_pool().await {
+        Ok(pool) => pool,
+        Err(e) => {
+            error!("Failed to get database connection: {:?}", e);
+            return Err(ServiceError::DatabaseConnectionError);
+        }
+    };
+
+    // First, get the current cart item to make calculations
+    let current_item = match sqlx::query_as::<_, SalesCart>(
+        "SELECT * FROM sales_cart WHERE id = $1 AND user_id = $2"
+    )
+    .bind(cart_item_id)
+    .bind(user_id)
+    .fetch_optional(&pool)
+    .await {
+        Ok(Some(item)) => item,
+        Ok(None) => {
+            info!("Cart item not found or not owned by user: {}", user_id);
+            return Err(ServiceError::NotFound);
+        },
+        Err(e) => {
+            error!("Database error while fetching cart item: {}", e);
+            return Err(ServiceError::DatabaseError(e.to_string()));
+        }
+    };
+
+    // Prepare update values, using current values if new ones aren't provided
+    let base_price = update_data.base_price.unwrap_or(current_item.base_price);
+    let qty = update_data.qty.unwrap_or(current_item.qty);
+    let discount_type = update_data.discount_type.unwrap_or(current_item.discount_type);
+    let discount_value = update_data.discount_value.unwrap_or(current_item.discount_value);
+
+    // Calculate discount_amount and sale_price based on the updated values
+    let discount_amount = if discount_type == "percentage" && discount_value > 0 {
+        base_price * rust_decimal::Decimal::new(discount_value as i64, 2)
+    } else {
+        rust_decimal::Decimal::new(discount_value as i64, 0)
+    };
+
+    let sale_price = base_price - discount_amount;
+
+    // Execute query to update the cart item
+    let updated_item = match sqlx::query_as::<_, SalesCart>(
+        "UPDATE sales_cart
+         SET base_price = $1, qty = $2, discount_type = $3, discount_value = $4,
+             discount_amount = $5, sale_price = $6, updated_at = NOW()
+         WHERE id = $7 AND user_id = $8
+         RETURNING id, user_id, store_id, product_id, base_price, qty,
+                 discount_type, discount_value, discount_amount, sale_price,
+                 created_at, updated_at"
+    )
+    .bind(base_price)
+    .bind(qty)
+    .bind(discount_type)
+    .bind(discount_value)
+    .bind(discount_amount)
+    .bind(sale_price)
+    .bind(cart_item_id)
+    .bind(user_id)
+    .fetch_one(&pool)
+    .await {
+        Ok(item) => item,
+        Err(e) => {
+            error!("Database error while updating cart item: {}", e);
+            return Err(ServiceError::DatabaseError(e.to_string()));
+        }
+    };
+
+    info!("Successfully updated cart item with ID: {} for user: {}", cart_item_id, user_id);
+    Ok(updated_item)
 }

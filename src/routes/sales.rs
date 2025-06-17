@@ -12,6 +12,7 @@ pub fn config(cfg: &mut web::ServiceConfig) {
             .service(
                 web::resource("/cart/{id}")
                     .route(web::delete().to(sales::delete_from_cart))
+                    .route(web::put().to(sales::update_cart_item))
             )
     );
 }

@@ -1,5 +1,5 @@
 use crate::models::{AppState, response::ApiResponse};
-use crate::models::sales::NewSalesCart;
+use crate::models::sales::{NewSalesCart, UpdateSalesCart};
 use crate::services::db_service::DbConnectionManager;
 use crate::services::sales_service;
 use actix_web::{web, HttpResponse, HttpRequest};
@@ -120,6 +120,45 @@ pub async fn get_cart_items(
         Err(e) => {
             error!("Failed to retrieve cart items: {:?}", e);
             HttpResponse::InternalServerError().json(ApiResponse::<()>::error(&format!("Failed to retrieve cart items: {}", e)))
+        }
+    }
+}
+
+pub async fn update_cart_item(
+    req: HttpRequest,
+    data: web::Data<AppState>,
+    path: web::Path<(i32,)>, // Cart item ID from path
+    cart_update: web::Json<UpdateSalesCart>,
+) -> HttpResponse {
+    info!("Processing update_cart_item request for item ID: {}", path.0);
+    
+    // Create database connection manager
+    let db_manager = DbConnectionManager::new(data.db_connection_string.clone());
+    
+    // Extract authentication using helper function
+    let auth_result = crate::middleware::extract_auth::extract_auth_user(&req, &db_manager).await;
+    
+    // Handle authentication result
+    let (user, _company_id) = match auth_result {
+        Ok((user, company_id)) => {
+            info!("User authenticated: {} (company_id: {})", user.email, company_id);
+            (user, company_id)
+        },
+        Err(e) => {
+            error!("Authentication failed: {:?}", e);
+            return HttpResponse::Unauthorized().json(ApiResponse::<()>::error(&format!("Authentication failed: {}", e)));
+        }
+    };
+    
+    // Process the update request with the authenticated user's ID
+    match sales_service::update_cart_item(&db_manager, path.0, user.id, cart_update.into_inner()).await {
+        Ok(updated_item) => {
+            info!("Item updated successfully with ID: {}", path.0);
+            HttpResponse::Ok().json(ApiResponse::success(updated_item))
+        },
+        Err(e) => {
+            error!("Failed to update cart item: {:?}", e);
+            HttpResponse::InternalServerError().json(ApiResponse::<()>::error(&format!("Failed to update cart item: {}", e)))
         }
     }
 }

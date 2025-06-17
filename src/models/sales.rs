@@ -30,3 +30,11 @@ pub struct NewSalesCart {
     pub discount_amount: Option<Decimal>,
     pub sale_price: Option<Decimal>,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateSalesCart {
+    pub base_price: Option<Decimal>,
+    pub qty: Option<i32>,
+    pub discount_type: Option<String>,
+    pub discount_value: Option<i32>,
+}
