@@ -12,6 +12,7 @@ pub enum ServiceError {
     DatabaseQueryError(String),
     DatabaseError(String),
     NotFound,
+    ValidationError(String),
 }
 
 #[derive(Serialize)]
@@ -31,6 +32,7 @@ impl fmt::Display for ServiceError {
             ServiceError::DatabaseQueryError(msg) => write!(f, "Database error: {}", msg),
             ServiceError::DatabaseError(msg) => write!(f, "Database error: {}", msg),
             ServiceError::NotFound => write!(f, "Resource not found"),
+            ServiceError::ValidationError(msg) => write!(f, "Validation error: {}", msg),
         }
     }
 }
@@ -87,6 +89,13 @@ impl ResponseError for ServiceError {
                     error_code: Some("not_found".to_string()),
                 })
             }
+            ServiceError::ValidationError(msg) => {
+                HttpResponse::BadRequest().json(ErrorResponse {
+                    message: msg.clone(),
+                    status: "error".to_string(),
+                    error_code: Some("validation_error".to_string()),
+                })
+            }
         }
     }
 
@@ -99,6 +108,7 @@ impl ResponseError for ServiceError {
             ServiceError::DatabaseQueryError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ServiceError::DatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ServiceError::NotFound => StatusCode::NOT_FOUND,
+            ServiceError::ValidationError(_) => StatusCode::BAD_REQUEST,
         }
     }
 }

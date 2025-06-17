@@ -18,5 +18,9 @@ pub fn config(cfg: &mut web::ServiceConfig) {
                     .route(web::delete().to(sales::delete_from_cart))
                     .route(web::put().to(sales::update_cart_item))
             )
+            .service(
+                web::resource("/orders")
+                    .route(web::post().to(sales::create_order))  // Add POST route for creating orders
+            )
     );
 }

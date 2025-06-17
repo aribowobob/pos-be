@@ -1,5 +1,5 @@
 use crate::models::{AppState, response::ApiResponse};
-use crate::models::sales::{NewSalesCart, UpdateSalesCart};
+use crate::models::sales::{NewSalesCart, UpdateSalesCart, CreateOrderRequest};
 use crate::services::db_service::DbConnectionManager;
 use crate::services::sales_service;
 use actix_web::{web, HttpResponse, HttpRequest};
@@ -159,6 +159,44 @@ pub async fn update_cart_item(
         Err(e) => {
             error!("Failed to update cart item: {:?}", e);
             HttpResponse::InternalServerError().json(ApiResponse::<()>::error(&format!("Failed to update cart item: {}", e)))
+        }
+    }
+}
+
+pub async fn create_order(
+    req: HttpRequest,
+    data: web::Data<AppState>,
+    order_request: web::Json<CreateOrderRequest>,
+) -> HttpResponse {
+    info!("Processing create_order request");
+    
+    // Create database connection manager
+    let db_manager = DbConnectionManager::new(data.db_connection_string.clone());
+    
+    // Extract authentication using our helper function
+    let auth_result = crate::middleware::extract_auth::extract_auth_user(&req, &db_manager).await;
+    
+    // Handle authentication result
+    let (user, _company_id) = match auth_result {
+        Ok((user, company_id)) => {
+            info!("User authenticated: {} (company_id: {})", user.email, company_id);
+            (user, company_id)
+        },
+        Err(e) => {
+            error!("Authentication failed: {:?}", e);
+            return HttpResponse::Unauthorized().json(ApiResponse::<()>::error(&format!("Authentication failed: {}", e)));
+        }
+    };
+    
+    // Process the request with the authenticated user's ID
+    match sales_service::create_sales_order(&db_manager, user.id, order_request.into_inner()).await {
+        Ok(response) => {
+            info!("Order created successfully with ID: {}", response.order.id);
+            HttpResponse::Created().json(ApiResponse::success(response))
+        },
+        Err(e) => {
+            error!("Failed to create order: {:?}", e);
+            HttpResponse::InternalServerError().json(ApiResponse::<()>::error(&format!("Failed to create order: {}", e)))
         }
     }
 }

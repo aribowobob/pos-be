@@ -1,8 +1,10 @@
 use crate::errors::ServiceError;
-use crate::models::sales::{SalesCart, NewSalesCart, UpdateSalesCart};
+use crate::models::sales::{SalesCart, NewSalesCart, UpdateSalesCart, SalesOrder, SalesOrderDetail, CreateOrderRequest, OrderResponse};
 use crate::services::db_service::DbConnectionManager;
+use chrono::Utc;
 use log::{error, info};
-use sqlx::Row;
+use sqlx::{Row, Transaction, Postgres};
+use rust_decimal::Decimal;
 
 pub async fn add_to_cart(
     db_manager: &DbConnectionManager,
@@ -286,6 +288,254 @@ pub async fn clear_cart(
     // Check if any row was affected
     let deleted = result.rows_affected() > 0;
     
+    if deleted {
+        info!("Successfully cleared cart for user: {} in store: {}", user_id, store_id);
+    } else {
+        info!("No cart items found for user: {} in store: {}", user_id, store_id);
+    }
+    
+    Ok(deleted)
+}
+
+pub async fn create_sales_order(
+    db_manager: &DbConnectionManager,
+    user_id: i32, // User ID from authentication
+    order_request: CreateOrderRequest,
+) -> Result<OrderResponse, ServiceError> {
+    let pool = match db_manager.get_pool().await {
+        Ok(pool) => pool,
+        Err(e) => {
+            error!("Failed to get database connection: {:?}", e);
+            return Err(ServiceError::DatabaseConnectionError);
+        }
+    };
+
+    // Start a transaction
+    let mut transaction = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(e) => {
+            error!("Failed to start transaction: {:?}", e);
+            return Err(ServiceError::DatabaseError(e.to_string()));
+        }
+    };
+
+    // 1. Get cart items for the user and store
+    let cart_items = match get_cart_items_tx(&mut transaction, user_id, order_request.store_id).await {
+        Ok(items) => {
+            if items.is_empty() {
+                return Err(ServiceError::ValidationError("No items in cart".to_string()));
+            }
+            items
+        },
+        Err(e) => return Err(e),
+    };
+
+    // 2. Calculate grand total from cart items
+    let grand_total = cart_items.iter().fold(Decimal::new(0, 0), |acc, item| {
+        acc + (item.sale_price * Decimal::new(item.qty as i64, 0))
+    });
+
+    // 3. Calculate receivable (payment_cash + payment_non_cash - grand_total)
+    let total_payment = order_request.payment_cash + order_request.payment_non_cash;
+    let receivable = if total_payment > grand_total {
+        total_payment - grand_total
+    } else {
+        Decimal::new(0, 0)
+    };
+
+    // 4. Insert into sales_orders
+    let order = match insert_sales_order(
+        &mut transaction, 
+        user_id, 
+        &order_request, 
+        grand_total, 
+        receivable
+    ).await {
+        Ok(order) => order,
+        Err(e) => {
+            // If there's an error, rollback and return
+            if let Err(rollback_err) = transaction.rollback().await {
+                error!("Failed to rollback transaction: {:?}", rollback_err);
+            }
+            return Err(e);
+        }
+    };
+
+    // 5. Insert order details
+    let mut order_details = Vec::new();
+    for cart_item in &cart_items {
+        let total_price = cart_item.sale_price * Decimal::new(cart_item.qty as i64, 0);
+        
+        let detail = match insert_sales_order_detail(
+            &mut transaction,
+            order.id,
+            cart_item,
+            total_price
+        ).await {
+            Ok(detail) => detail,
+            Err(e) => {
+                // If there's an error, rollback and return
+                if let Err(rollback_err) = transaction.rollback().await {
+                    error!("Failed to rollback transaction: {:?}", rollback_err);
+                }
+                return Err(e);
+            }
+        };
+        
+        order_details.push(detail);
+    }
+
+    // 6. Clear the cart
+    if let Err(e) = clear_cart_tx(&mut transaction, user_id, order_request.store_id).await {
+        // If there's an error, rollback and return
+        if let Err(rollback_err) = transaction.rollback().await {
+            error!("Failed to rollback transaction: {:?}", rollback_err);
+        }
+        return Err(e);
+    }
+
+    // Commit the transaction
+    if let Err(e) = transaction.commit().await {
+        error!("Failed to commit transaction: {:?}", e);
+        return Err(ServiceError::DatabaseError(e.to_string()));
+    }
+
+    info!("Successfully created sales order with ID: {}", order.id);
+    
+    Ok(OrderResponse {
+        order,
+        details: order_details,
+    })
+}
+
+// Helper function to get cart items within a transaction
+async fn get_cart_items_tx(
+    transaction: &mut Transaction<'_, Postgres>, 
+    user_id: i32, 
+    store_id: i32
+) -> Result<Vec<SalesCart>, ServiceError> {
+    let cart_items = match sqlx::query_as::<_, SalesCart>(
+        "SELECT id, user_id, store_id, product_id, base_price, qty, 
+                discount_type, discount_value, discount_amount, sale_price, 
+                created_at, updated_at 
+         FROM sales_cart 
+         WHERE user_id = $1 AND store_id = $2 
+         ORDER BY created_at DESC"
+    )
+    .bind(user_id)
+    .bind(store_id)
+    .fetch_all(&mut **transaction)
+    .await {
+        Ok(items) => items,
+        Err(e) => {
+            error!("Database error while fetching cart items: {}", e);
+            return Err(ServiceError::DatabaseError(e.to_string()));
+        }
+    };
+
+    info!("Retrieved {} cart items for user {} in store {}", cart_items.len(), user_id, store_id);
+    Ok(cart_items)
+}
+
+// Helper function to insert into sales_orders within a transaction
+async fn insert_sales_order(
+    transaction: &mut Transaction<'_, Postgres>,
+    user_id: i32,
+    order_request: &CreateOrderRequest,
+    grand_total: Decimal,
+    receivable: Decimal,
+) -> Result<SalesOrder, ServiceError> {
+    // Use the provided date or default to today
+    let date = order_request.date.unwrap_or_else(|| chrono::Local::now().date_naive());
+
+    let order = match sqlx::query_as::<_, SalesOrder>(
+        "INSERT INTO sales_orders (
+            order_number, user_id, store_id, date, grand_total, 
+            payment_cash, payment_non_cash, receivable, created_at, customer_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9)
+        RETURNING id, order_number, user_id, store_id, date, grand_total, 
+                 payment_cash, payment_non_cash, receivable, created_at, customer_id"
+    )
+    .bind(&order_request.order_number)
+    .bind(user_id)
+    .bind(order_request.store_id)
+    .bind(date)
+    .bind(grand_total)
+    .bind(order_request.payment_cash)
+    .bind(order_request.payment_non_cash)
+    .bind(receivable)
+    .bind(order_request.customer_id)
+    .fetch_one(&mut **transaction)
+    .await {
+        Ok(order) => order,
+        Err(e) => {
+            error!("Database error while creating sales order: {}", e);
+            return Err(ServiceError::DatabaseError(e.to_string()));
+        }
+    };
+
+    info!("Created sales order with ID: {}", order.id);
+    Ok(order)
+}
+
+// Helper function to insert into sales_order_details within a transaction
+async fn insert_sales_order_detail(
+    transaction: &mut Transaction<'_, Postgres>,
+    order_id: i32,
+    cart_item: &SalesCart,
+    total_price: Decimal,
+) -> Result<SalesOrderDetail, ServiceError> {
+    let detail = match sqlx::query_as::<_, SalesOrderDetail>(
+        "INSERT INTO sales_order_details (
+            order_id, product_id, qty, base_price, 
+            discount_type, discount_value, discount_amount, sale_price, total_price
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING id, order_id, product_id, qty, base_price, 
+                 discount_type, discount_value, discount_amount, sale_price, total_price"
+    )
+    .bind(order_id)
+    .bind(cart_item.product_id)
+    .bind(cart_item.qty)
+    .bind(cart_item.base_price)
+    .bind(&cart_item.discount_type)
+    .bind(Decimal::new(cart_item.discount_value as i64, 0)) // Convert i32 to Decimal
+    .bind(cart_item.discount_amount)
+    .bind(cart_item.sale_price)
+    .bind(total_price)
+    .fetch_one(&mut **transaction)
+    .await {
+        Ok(detail) => detail,
+        Err(e) => {
+            error!("Database error while creating sales order detail: {}", e);
+            return Err(ServiceError::DatabaseError(e.to_string()));
+        }
+    };
+
+    info!("Created sales order detail with ID: {}", detail.id);
+    Ok(detail)
+}
+
+// Helper function to clear cart within a transaction
+async fn clear_cart_tx(
+    transaction: &mut Transaction<'_, Postgres>,
+    user_id: i32,
+    store_id: i32,
+) -> Result<bool, ServiceError> {
+    let result = match sqlx::query(
+        "DELETE FROM sales_cart WHERE user_id = $1 AND store_id = $2"
+    )
+    .bind(user_id)
+    .bind(store_id)
+    .execute(&mut **transaction)
+    .await {
+        Ok(result) => result,
+        Err(e) => {
+            error!("Database error while clearing cart: {}", e);
+            return Err(ServiceError::DatabaseError(e.to_string()));
+        }
+    };
+
+    let deleted = result.rows_affected() > 0;
     if deleted {
         info!("Successfully cleared cart for user: {} in store: {}", user_id, store_id);
     } else {
