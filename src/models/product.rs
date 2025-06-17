@@ -1,6 +1,7 @@
 // file: /Users/catalyst/Documents/playground/pos-be/src/models/product.rs
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use sqlx::types::BigDecimal;
 
 #[derive(Serialize, Deserialize)]
 pub struct ProductCategory {
@@ -17,6 +18,31 @@ pub struct ProductCategoryQueryParams {
     pub search: Option<String>,
     pub page: Option<i32>,
     pub size: Option<i32>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Product {
+    pub id: i32,
+    pub sku: String,
+    pub name: String,
+    pub purchase_price: BigDecimal,
+    pub sale_price: BigDecimal,
+    pub company_id: i32,
+    pub unit_name: Option<String>,
+    pub deleted_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub category_id: Option<i32>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct NewProduct {
+    pub sku: String,
+    pub name: String,
+    pub purchase_price: BigDecimal,
+    pub sale_price: BigDecimal,
+    pub unit_name: Option<String>,
+    pub category_id: Option<i32>,
 }
 
 #[derive(Serialize)]
