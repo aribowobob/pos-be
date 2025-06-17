@@ -1,8 +1,8 @@
 use crate::errors::ServiceError;
 use crate::models::sales::{SalesCart, NewSalesCart};
 use crate::services::db_service::DbConnectionManager;
-use sqlx::Row;
 use log::{error, info};
+use sqlx::Row;
 
 pub async fn add_to_cart(
     db_manager: &DbConnectionManager,
@@ -79,4 +79,45 @@ pub async fn add_to_cart(
 
     info!("Item added to cart successfully with ID: {}", cart_item.id);
     Ok(cart_item)
+}
+
+pub async fn delete_from_cart(
+    db_manager: &DbConnectionManager,
+    cart_item_id: i32,
+    user_id: i32, // User ID from authentication
+) -> Result<bool, ServiceError> {
+    let pool = match db_manager.get_pool().await {
+        Ok(pool) => pool,
+        Err(e) => {
+            error!("Failed to get database connection: {:?}", e);
+            return Err(ServiceError::DatabaseConnectionError);
+        }
+    };
+
+    // Execute query to delete the cart item, ensuring it belongs to the authenticated user
+    let result = match sqlx::query(
+        "DELETE FROM sales_cart 
+         WHERE id = $1 AND user_id = $2"
+    )
+    .bind(cart_item_id)
+    .bind(user_id)
+    .execute(&pool)
+    .await {
+        Ok(result) => result,
+        Err(e) => {
+            error!("Database error while deleting from cart: {}", e);
+            return Err(ServiceError::DatabaseError(e.to_string()));
+        }
+    };
+
+    // Check if any row was affected
+    let deleted = result.rows_affected() > 0;
+    
+    if deleted {
+        info!("Successfully deleted cart item with ID: {} for user: {}", cart_item_id, user_id);
+    } else {
+        info!("No cart item found with ID: {} for user: {}", cart_item_id, user_id);
+    }
+    
+    Ok(deleted)
 }
