@@ -237,3 +237,59 @@ pub async fn get_products(
     
     Ok(paginated)
 }
+
+pub async fn get_product_by_id(
+    db_manager: &DbConnectionManager,
+    product_id: i32,
+    company_id: i32, // Use company_id to ensure user can only access products from their company
+) -> Result<Product, ServiceError> {
+    let pool = match db_manager.get_pool().await {
+        Ok(pool) => pool,
+        Err(e) => {
+            error!("Failed to get database connection: {:?}", e);
+            return Err(ServiceError::DatabaseConnectionError);
+        }
+    };
+
+    // Query for product with both product_id and company_id to ensure proper access control
+    let query = "
+        SELECT id, sku, name, purchase_price, sale_price, company_id, unit_name, 
+        deleted_at, created_at, updated_at, category_id 
+        FROM products 
+        WHERE id = $1 AND company_id = $2 AND deleted_at IS NULL";
+
+    match sqlx::query(query)
+        .bind(product_id)
+        .bind(company_id)
+        .try_map(|row: sqlx::postgres::PgRow| {
+            Ok(Product {
+                id: row.try_get("id")?,
+                sku: row.try_get("sku")?,
+                name: row.try_get("name")?,
+                purchase_price: row.try_get("purchase_price")?,
+                sale_price: row.try_get("sale_price")?,
+                company_id: row.try_get("company_id")?,
+                unit_name: row.try_get("unit_name")?,
+                deleted_at: row.try_get("deleted_at")?,
+                created_at: row.try_get("created_at")?,
+                updated_at: row.try_get("updated_at")?,
+                category_id: row.try_get("category_id")?,
+            })
+        })
+        .fetch_optional(&pool)
+        .await
+    {
+        Ok(Some(product)) => {
+            info!("Product with ID {} found for company_id {}", product_id, company_id);
+            Ok(product)
+        },
+        Ok(None) => {
+            info!("Product with ID {} not found for company_id {}", product_id, company_id);
+            Err(ServiceError::NotFound)
+        },
+        Err(e) => {
+            error!("Database error while fetching product by ID {}: {}", product_id, e);
+            Err(ServiceError::DatabaseError(e.to_string()))
+        }
+    }
+}

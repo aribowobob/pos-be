@@ -3,6 +3,7 @@ use crate::models::{AppState, response::ApiResponse};
 use crate::models::product::{ProductCategoryQueryParams, ProductQueryParams, NewProduct};
 use crate::services::db_service::DbConnectionManager;
 use crate::services::product_service;
+use crate::errors::ServiceError;
 use actix_web::{web, HttpResponse, HttpRequest};
 use log::{error, info};
 
@@ -166,6 +167,65 @@ pub async fn get_products(
             HttpResponse::InternalServerError().json(ApiResponse {
                 status: "error".to_string(),
                 message: format!("Failed to retrieve products: {:?}", e),
+                data: None::<()>,
+            })
+        }
+    }
+}
+
+pub async fn get_product_by_id(
+    req: HttpRequest,
+    path: web::Path<i32>,
+    data: web::Data<AppState>,
+) -> HttpResponse {
+    let product_id = path.into_inner();
+    info!("Processing get_product_by_id request for product_id: {}", product_id);
+    
+    // Create database connection manager
+    let db_manager = DbConnectionManager::new(data.db_connection_string.clone());
+    
+    // Extract authentication using our helper function
+    let auth_result = crate::middleware::extract_auth::extract_auth_user(&req, &db_manager).await;
+    
+    // Handle authentication result
+    let (_user, company_id) = match auth_result {
+        Ok((user, company_id)) => {
+            info!("User authenticated for get_product_by_id: {} (company_id: {})", user.email, company_id);
+            (user, company_id)
+        },
+        Err(e) => {
+            error!("Authentication failed for get_product_by_id: {:?}", e);
+            return HttpResponse::Unauthorized().json(ApiResponse {
+                status: "error".to_string(),
+                message: format!("Authentication failed: {}", e),
+                data: None::<()>,
+            });
+        }
+    };
+    
+    // Call the service to get product by ID, ensuring company_id match
+    match product_service::get_product_by_id(&db_manager, product_id, company_id).await {
+        Ok(product) => {
+            info!("Successfully retrieved product with ID {} for company_id {}", product_id, company_id);
+            HttpResponse::Ok().json(ApiResponse {
+                status: "success".to_string(),
+                message: "Product retrieved successfully".to_string(),
+                data: Some(product),
+            })
+        },
+        Err(ServiceError::NotFound) => {
+            info!("Product with ID {} not found or not accessible for company_id {}", product_id, company_id);
+            HttpResponse::NotFound().json(ApiResponse {
+                status: "error".to_string(),
+                message: "Product not found".to_string(),
+                data: None::<()>,
+            })
+        },
+        Err(e) => {
+            error!("Failed to retrieve product by ID: {:?}", e);
+            HttpResponse::InternalServerError().json(ApiResponse {
+                status: "error".to_string(),
+                message: format!("Failed to retrieve product: {:?}", e),
                 data: None::<()>,
             })
         }
