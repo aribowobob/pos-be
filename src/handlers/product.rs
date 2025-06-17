@@ -1,12 +1,13 @@
 // file: /Users/catalyst/Documents/playground/pos-be/src/handlers/product.rs
 use crate::models::{AppState, response::ApiResponse};
-use crate::models::product::{ProductCategoryQueryParams, NewProduct};
+use crate::models::product::{ProductCategoryQueryParams, ProductQueryParams, NewProduct};
 use crate::services::db_service::DbConnectionManager;
 use crate::services::product_service;
-use actix_web::{web, HttpResponse};
+use actix_web::{web, HttpResponse, HttpRequest};
 use log::{error, info};
 
 pub async fn get_product_categories(
+    req: HttpRequest,
     query: web::Query<ProductCategoryQueryParams>,
     data: web::Data<AppState>,
 ) -> HttpResponse {
@@ -15,7 +16,25 @@ pub async fn get_product_categories(
     // Create database connection manager
     let db_manager = DbConnectionManager::new(data.db_connection_string.clone());
     
-    // Call the service to get product categories
+    // Extract authentication using our helper function
+    let auth_result = crate::middleware::extract_auth::extract_auth_user(&req, &db_manager).await;
+    
+    // Handle authentication result
+    let (_user, _company_id) = match auth_result {
+        Ok((user, company_id)) => {
+            info!("User authenticated: {} (company_id: {})", user.email, company_id);
+            (user, company_id)
+        },
+        Err(e) => {
+            error!("Authentication failed: {:?}", e);
+            return HttpResponse::Unauthorized().json(ApiResponse {
+                status: "error".to_string(),
+                message: format!("Authentication failed: {}", e),
+                data: None::<()>,
+            });
+        }
+    };
+    
     match product_service::get_product_categories(
         &db_manager,
         query.search.clone(),
@@ -41,96 +60,36 @@ pub async fn get_product_categories(
 }
 
 pub async fn create_product(
-    req: web::HttpRequest,
+    req: HttpRequest,
     data: web::Data<AppState>,
     product_data: web::Json<NewProduct>,
 ) -> HttpResponse {
     info!("Processing create_product request");
     
-    // Extract user info from token
-    let token = req.cookie("access_token")
-        .map(|c| c.value().to_string())
-        .or_else(|| {
-            req.headers()
-                .get(actix_web::http::header::AUTHORIZATION)
-                .and_then(|auth| auth.to_str().ok())
-                .and_then(|auth_str| {
-                    if auth_str.starts_with("Bearer ") {
-                        Some(auth_str[7..].to_string())
-                    } else {
-                        None
-                    }
-                })
-        });
-    
-    let token = match token {
-        Some(token) => token,
-        None => {
-            error!("No authentication token provided");
-            return HttpResponse::Unauthorized().json(ApiResponse {
-                status: "error".to_string(),
-                message: "No authentication token provided".to_string(),
-                data: None::<()>,
-            });
-        }
-    };
-    
-    // Verify token and extract user info
-    let token_data = match crate::services::auth::verify_jwt(&token) {
-        Ok(token_data) => token_data,
-        Err(e) => {
-            error!("Invalid authentication token: {:?}", e);
-            return HttpResponse::Unauthorized().json(ApiResponse {
-                status: "error".to_string(),
-                message: "Invalid authentication token".to_string(),
-                data: None::<()>,
-            });
-        }
-    };
-    
     // Create database connection manager
     let db_manager = DbConnectionManager::new(data.db_connection_string.clone());
     
-    // Get user info from database
-    let pool = match db_manager.get_pool().await {
-        Ok(pool) => pool,
-        Err(e) => {
-            error!("Failed to get database connection: {:?}", e);
-            return HttpResponse::InternalServerError().json(ApiResponse {
-                status: "error".to_string(),
-                message: "Database connection error".to_string(),
-                data: None::<()>,
-            });
-        }
-    };
+    // Extract authentication using our helper function
+    let auth_result = crate::middleware::extract_auth::extract_auth_user(&req, &db_manager).await;
     
-    // Get user from database using email from token
-    let email = token_data.claims.email;
-    let user = match crate::services::auth::get_user_by_email(&pool, &email).await {
-        Ok(Some(user)) => user,
-        Ok(None) => {
-            error!("User not found for email: {}", email);
+    // Handle authentication result
+    let (_user, company_id) = match auth_result {
+        Ok((user, company_id)) => {
+            info!("User authenticated for create_product: {} (company_id: {})", user.email, company_id);
+            (user, company_id)
+        },
+        Err(e) => {
+            error!("Authentication failed for create_product: {:?}", e);
             return HttpResponse::Unauthorized().json(ApiResponse {
                 status: "error".to_string(),
-                message: "User not found".to_string(),
-                data: None::<()>,
-            });
-        }
-        Err(e) => {
-            error!("Database error when fetching user: {:?}", e);
-            return HttpResponse::InternalServerError().json(ApiResponse {
-                status: "error".to_string(),
-                message: "Database error".to_string(),
+                message: format!("Authentication failed: {}", e),
                 data: None::<()>,
             });
         }
     };
     
-    // Extract company_id from user
-    let company_id = user.company_id;
-    
     // Create product with company_id from user
-    let mut product = product_data.into_inner();
+    let product = product_data.into_inner();
     
     // Call the service to create the product
     match product_service::create_product(
@@ -151,6 +110,62 @@ pub async fn create_product(
             HttpResponse::InternalServerError().json(ApiResponse {
                 status: "error".to_string(),
                 message: format!("Failed to create product: {:?}", e),
+                data: None::<()>,
+            })
+        }
+    }
+}
+
+pub async fn get_products(
+    req: HttpRequest,
+    query: web::Query<ProductQueryParams>,
+    data: web::Data<AppState>,
+) -> HttpResponse {
+    info!("Processing get_products request");
+    
+    // Create database connection manager
+    let db_manager = DbConnectionManager::new(data.db_connection_string.clone());
+    
+    // Extract authentication using our helper function
+    let auth_result = crate::middleware::extract_auth::extract_auth_user(&req, &db_manager).await;
+    
+    // Handle authentication result
+    let (_user, company_id) = match auth_result {
+        Ok((user, company_id)) => {
+            info!("User authenticated for get_products: {} (company_id: {})", user.email, company_id);
+            (user, company_id)
+        },
+        Err(e) => {
+            error!("Authentication failed for get_products: {:?}", e);
+            return HttpResponse::Unauthorized().json(ApiResponse {
+                status: "error".to_string(),
+                message: format!("Authentication failed: {}", e),
+                data: None::<()>,
+            });
+        }
+    };
+    
+    // Call the service to get products
+    match product_service::get_products(
+        &db_manager,
+        company_id,
+        query.search.clone(),
+        query.page,
+        query.size,
+    ).await {
+        Ok(products) => {
+            info!("Successfully retrieved products for company_id {}", company_id);
+            HttpResponse::Ok().json(ApiResponse {
+                status: "success".to_string(),
+                message: "Products retrieved successfully".to_string(),
+                data: Some(products),
+            })
+        }
+        Err(e) => {
+            error!("Failed to retrieve products: {:?}", e);
+            HttpResponse::InternalServerError().json(ApiResponse {
+                status: "error".to_string(),
+                message: format!("Failed to retrieve products: {:?}", e),
                 data: None::<()>,
             })
         }

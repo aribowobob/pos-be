@@ -4,6 +4,7 @@ pub mod migration;
 pub mod orders;
 pub mod products;
 pub mod user;
+pub mod debug;
 
 // Re-export all route configuration functions
 pub use auth::configure as configure_auth;
@@ -12,6 +13,7 @@ pub use migration::configure as configure_migration;
 pub use orders::configure as configure_orders;
 pub use products::configure as configure_products;
 pub use user::configure as configure_user;
+pub use debug::configure as configure_debug;
 
 use actix_web::web;
 
@@ -21,6 +23,7 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     cfg.configure(configure_health);
     cfg.configure(configure_auth);
     cfg.configure(configure_migration);
+    cfg.configure(configure_debug); // Add debug routes
 
     // All other endpoints under API scope
     cfg.service(

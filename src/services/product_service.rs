@@ -136,3 +136,104 @@ pub async fn create_product(
     info!("Product created successfully with ID: {}", product.id);
     Ok(product)
 }
+
+pub async fn get_products(
+    db_manager: &DbConnectionManager,
+    company_id: i32,
+    search: Option<String>,
+    page: Option<i32>,
+    size: Option<i32>,
+) -> Result<PaginatedResponse<Product>, ServiceError> {
+    let pool = match db_manager.get_pool().await {
+        Ok(pool) => pool,
+        Err(e) => {
+            error!("Failed to get database connection: {:?}", e);
+            return Err(ServiceError::DatabaseConnectionError);
+        }
+    };
+
+    // Default pagination values
+    let page = page.unwrap_or(1);
+    let size = size.unwrap_or(10);
+    let offset = (page - 1) * size;
+
+    // Build the query based on whether search is provided
+    let mut count_query = String::from("SELECT COUNT(*) FROM products WHERE company_id = $1 AND deleted_at IS NULL");
+    let mut query = String::from(
+        "SELECT id, sku, name, purchase_price, sale_price, company_id, unit_name, 
+        deleted_at, created_at, updated_at, category_id 
+        FROM products WHERE company_id = $1 AND deleted_at IS NULL"
+    );
+
+    // Add search condition if provided
+    let mut params_index = 2; // Start from $2 since $1 is company_id
+    if let Some(_search_term) = &search {
+        let where_clause = format!(" AND name ILIKE ${}::text", params_index);
+        count_query.push_str(&where_clause);
+        query.push_str(&where_clause);
+        params_index += 1;
+    }
+
+    // Add order by and pagination
+    query.push_str(&format!(" ORDER BY name ASC LIMIT ${}::int4 OFFSET ${}::int4", params_index, params_index + 1));
+
+    // Get total count
+    let mut count_query_builder = sqlx::query_scalar(&count_query);
+    count_query_builder = count_query_builder.bind(company_id);
+    
+    // Add search parameter if provided
+    if let Some(search_term) = &search {
+        count_query_builder = count_query_builder.bind(format!("%{}%", search_term));
+    }
+    
+    let total: i64 = match count_query_builder.fetch_one(&pool).await {
+        Ok(count) => count,
+        Err(e) => {
+            error!("Database error while counting products: {}", e);
+            return Err(ServiceError::DatabaseError(e.to_string()));
+        }
+    };
+    
+    // Get paginated results
+    let mut query_builder = sqlx::query(&query);
+    query_builder = query_builder.bind(company_id);
+    
+    // Add search parameter if provided
+    if let Some(search_term) = &search {
+        query_builder = query_builder.bind(format!("%{}%", search_term));
+    }
+    
+    // Add pagination parameters
+    query_builder = query_builder.bind(size).bind(offset);
+    
+    let rows = match query_builder
+        .try_map(|row: sqlx::postgres::PgRow| {
+            Ok(Product {
+                id: row.try_get("id")?,
+                sku: row.try_get("sku")?,
+                name: row.try_get("name")?,
+                purchase_price: row.try_get("purchase_price")?,
+                sale_price: row.try_get("sale_price")?,
+                company_id: row.try_get("company_id")?,
+                unit_name: row.try_get("unit_name")?,
+                deleted_at: row.try_get("deleted_at")?,
+                created_at: row.try_get("created_at")?,
+                updated_at: row.try_get("updated_at")?,
+                category_id: row.try_get("category_id")?,
+            })
+        })
+        .fetch_all(&pool)
+        .await
+    {
+        Ok(rows) => rows,
+        Err(e) => {
+            error!("Database error while fetching products: {}", e);
+            return Err(ServiceError::DatabaseError(e.to_string()));
+        }
+    };
+    
+    info!("Retrieved {} products for company_id {}", rows.len(), company_id);
+    let paginated = PaginatedResponse::new(page, size, total, rows);
+    
+    Ok(paginated)
+}

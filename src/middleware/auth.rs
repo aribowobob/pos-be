@@ -89,18 +89,20 @@ where
         Box::pin(async move {
             // If there's no token, proceed and let the handler handle it
             if token.is_none() {
+                log::debug!("No token found in middleware, letting handler manage authentication");
                 return fut.await;
             }
 
             // Verify the token
             match verify_jwt(&token.unwrap()) {
-                Ok(_token_data) => { // Prefix with underscore to ignore unused variable
+                Ok(token_data) => { 
+                    log::debug!("Token verified successfully for user: {}", token_data.claims.email);
                     // Token is valid, proceed
                     fut.await
                 }
                 Err(e) => {
                     error!("JWT verification failed: {:?}", e);
-                    // Just let the handler handle auth errors
+                    // Let the handler handle auth errors (this may be the issue)
                     fut.await
                 }
             }

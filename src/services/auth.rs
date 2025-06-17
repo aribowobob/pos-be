@@ -35,14 +35,28 @@ pub fn create_jwt(user_info: &UserInfo) -> String {
 }
 
 pub fn verify_jwt(token: &str) -> Result<TokenData<Claims>, ServiceError> {
-    let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "default_secret".to_string());
+    let jwt_secret = match std::env::var("JWT_SECRET") {
+        Ok(secret) => {
+            debug!("JWT_SECRET found in environment");
+            secret
+        },
+        Err(_) => {
+            warn!("JWT_SECRET not found in environment, using default secret");
+            "default_secret".to_string()
+        }
+    };
+    
+    debug!("Attempting to verify JWT token");
     
     decode::<Claims>(
         token,
         &DecodingKey::from_secret(jwt_secret.as_bytes()),
         &Validation::default(),
     )
-    .map_err(|_| ServiceError::Unauthorized)
+    .map_err(|e| {
+        error!("JWT verification failed: {:?}", e);
+        ServiceError::Unauthorized
+    })
 }
 
 pub async fn get_user_by_email(pool: &PgPool, email: &str) -> Result<Option<User>, sqlx::Error> {
