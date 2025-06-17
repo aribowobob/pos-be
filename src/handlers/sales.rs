@@ -1,5 +1,5 @@
 use crate::models::{AppState, response::ApiResponse};
-use crate::models::sales::{NewSalesCart, UpdateSalesCart, CreateOrderRequest};
+use crate::models::sales::{NewSalesCart, UpdateSalesCart, CreateOrderRequest, SalesReport};
 use crate::services::db_service::DbConnectionManager;
 use crate::services::sales_service;
 use actix_web::{web, HttpResponse, HttpRequest};
@@ -252,6 +252,60 @@ pub async fn clear_cart(
         Err(e) => {
             error!("Failed to clear cart: {:?}", e);
             HttpResponse::InternalServerError().json(ApiResponse::<()>::error(&format!("Failed to clear cart: {}", e)))
+        }
+    }
+}
+
+// Query parameters struct for sales reports
+#[derive(serde::Deserialize)]
+pub struct GetSalesReportQuery {
+    pub start_date: chrono::NaiveDate, 
+    pub end_date: chrono::NaiveDate,
+    pub store_id: i32, // 0 means all stores
+}
+
+pub async fn get_sales_report(
+    req: HttpRequest,
+    data: web::Data<AppState>,
+    query: web::Query<GetSalesReportQuery>,
+) -> HttpResponse {
+    info!("Processing get_sales_report request from {} to {} for store_id: {}", 
+          query.start_date, query.end_date, query.store_id);
+    
+    // Create database connection manager
+    let db_manager = DbConnectionManager::new(data.db_connection_string.clone());
+    
+    // Extract authentication using our helper function
+    let auth_result = crate::middleware::extract_auth::extract_auth_user(&req, &db_manager).await;
+    
+    // Handle authentication result
+    let (user, company_id) = match auth_result {
+        Ok((user, company_id)) => {
+            info!("User authenticated: {} (company_id: {})", user.email, company_id);
+            (user, company_id)
+        },
+        Err(e) => {
+            error!("Authentication failed: {:?}", e);
+            return HttpResponse::Unauthorized().json(ApiResponse::<()>::error(&format!("Authentication failed: {}", e)));
+        }
+    };
+    
+    // Convert query to service model
+    let report_query = crate::models::sales::SalesReportQuery {
+        start_date: query.start_date,
+        end_date: query.end_date,
+        store_id: query.store_id,
+    };
+    
+    // Process the request with the authenticated user's ID
+    match sales_service::generate_sales_report(&db_manager, user.id, company_id, report_query).await {
+        Ok(report) => {
+            info!("Generated sales report with {} orders", report.orders.len());
+            HttpResponse::Ok().json(ApiResponse::success(report))
+        },
+        Err(e) => {
+            error!("Failed to generate sales report: {:?}", e);
+            HttpResponse::InternalServerError().json(ApiResponse::<()>::error(&format!("Failed to generate sales report: {}", e)))
         }
     }
 }

@@ -22,5 +22,9 @@ pub fn config(cfg: &mut web::ServiceConfig) {
                 web::resource("/orders")
                     .route(web::post().to(sales::create_order))  // Add POST route for creating orders
             )
+            .service(
+                web::resource("/report")
+                    .route(web::get().to(sales::get_sales_report))  // Add GET route for sales report
+            )
     );
 }

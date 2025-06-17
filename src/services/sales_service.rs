@@ -1,5 +1,6 @@
 use crate::errors::ServiceError;
-use crate::models::sales::{SalesCart, NewSalesCart, UpdateSalesCart, SalesOrder, SalesOrderDetail, CreateOrderRequest, OrderResponse};
+use crate::models::sales::{SalesCart, NewSalesCart, UpdateSalesCart, SalesOrder, SalesOrderDetail, CreateOrderRequest, OrderResponse,
+    SalesReport, SalesReportOrder, SkuSummaryItem, SalesSummary, SalesReportQuery};
 use crate::services::db_service::DbConnectionManager;
 use chrono::Utc;
 use log::{error, info};
@@ -543,4 +544,114 @@ async fn clear_cart_tx(
     }
     
     Ok(deleted)
+}
+
+pub async fn generate_sales_report(
+    db_manager: &DbConnectionManager,
+    _user_id: i32,
+    company_id: i32,
+    query: SalesReportQuery,
+) -> Result<SalesReport, ServiceError> {
+    let pool = match db_manager.get_pool().await {
+        Ok(pool) => pool,
+        Err(e) => {
+            error!("Failed to get database connection: {:?}", e);
+            return Err(ServiceError::DatabaseConnectionError);
+        }
+    };
+
+    // 1. Get orders based on date range and store_id
+    let mut orders_query_builder = String::from(
+        "SELECT so.id, so.order_number, so.user_id, u.initial as user_initial, 
+        so.store_id, s.initial as store_initial, so.date, so.grand_total, 
+        so.payment_cash, so.payment_non_cash, so.receivable, so.created_at, so.customer_id
+        FROM sales_orders so
+        JOIN users u ON so.user_id = u.id
+        JOIN stores s ON so.store_id = s.id
+        WHERE so.date BETWEEN $1 AND $2
+        AND u.company_id = $3"
+    );
+
+    // Add store filter if specified (not 0)
+    if query.store_id > 0 {
+        orders_query_builder.push_str(" AND so.store_id = $4");
+    }
+    
+    orders_query_builder.push_str(" ORDER BY so.date DESC, so.id DESC");
+
+    // Create the query
+    let mut query_builder = sqlx::query_as::<_, SalesReportOrder>(&orders_query_builder);
+    
+    // Bind parameters
+    query_builder = query_builder.bind(query.start_date);
+    query_builder = query_builder.bind(query.end_date);
+    query_builder = query_builder.bind(company_id);
+    
+    // Add store binding if specified
+    if query.store_id > 0 {
+        query_builder = query_builder.bind(query.store_id);
+    }
+    
+    let orders = match query_builder.fetch_all(&pool).await {
+        Ok(orders) => orders,
+        Err(e) => {
+            error!("Error fetching orders for report: {:?}", e);
+            return Err(ServiceError::DatabaseError(e.to_string()));
+        }
+    };
+
+    // Get the order IDs for SKU summary
+    let order_ids: Vec<i32> = orders.iter().map(|o| o.id).collect();
+    
+    if order_ids.is_empty() {
+        // If no orders found, return an empty report
+        return Ok(SalesReport {
+            orders: vec![],
+            sku_summary: vec![],
+            summary: SalesSummary {
+                total_payment_cash: Decimal::new(0, 0),
+                total_payment_non_cash: Decimal::new(0, 0),
+                total_receivable: Decimal::new(0, 0),
+                total_orders: 0,
+            },
+        });
+    }
+
+    // 2. Get SKU summary for the selected orders
+    let sku_summary = match sqlx::query_as::<_, SkuSummaryItem>(
+        "SELECT sod.product_id, 
+                p.name as product_name, 
+                p.sku, 
+                SUM(sod.qty) as total_qty, 
+                SUM(sod.total_price) as total_price 
+         FROM sales_order_details sod
+         JOIN products p ON sod.product_id = p.id
+         WHERE sod.order_id = ANY($1)
+         GROUP BY sod.product_id, p.name, p.sku
+         ORDER BY total_qty DESC"
+    )
+    .bind(&order_ids)
+    .fetch_all(&pool)
+    .await {
+        Ok(summary) => summary,
+        Err(e) => {
+            error!("Error fetching SKU summary: {:?}", e);
+            return Err(ServiceError::DatabaseError(e.to_string()));
+        }
+    };
+
+    // 3. Calculate the total summary
+    let summary = SalesSummary {
+        total_payment_cash: orders.iter().fold(Decimal::new(0, 0), |acc, order| acc + order.payment_cash),
+        total_payment_non_cash: orders.iter().fold(Decimal::new(0, 0), |acc, order| acc + order.payment_non_cash),
+        total_receivable: orders.iter().fold(Decimal::new(0, 0), |acc, order| acc + order.receivable),
+        total_orders: orders.len() as i32,
+    };
+
+    // Return the complete sales report
+    Ok(SalesReport {
+        orders,
+        sku_summary,
+        summary,
+    })
 }
