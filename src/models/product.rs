@@ -2,8 +2,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use rust_decimal::Decimal;
+use utoipa::{ToSchema, IntoParams};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct ProductCategory {
     pub id: i32,
     pub name: String,
@@ -13,14 +14,20 @@ pub struct ProductCategory {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema, IntoParams)]
+#[into_params(parameter_in = Query)]
 pub struct ProductCategoryQueryParams {
+    /// Optional search term to filter categories
     pub search: Option<String>,
+    /// Page number for pagination
+    #[schema(default = "1")]
     pub page: Option<i32>,
+    /// Number of items per page
+    #[schema(default = "10")]
     pub size: Option<i32>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct Product {
     pub id: i32,
     pub sku: String,
@@ -35,7 +42,7 @@ pub struct Product {
     pub category_id: Option<i32>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct NewProduct {
     pub sku: String,
     pub name: String,
@@ -45,10 +52,16 @@ pub struct NewProduct {
     pub category_id: Option<i32>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema, IntoParams)]
+#[into_params(parameter_in = Query)]
 pub struct ProductQueryParams {
+    /// Optional search term to filter products
     pub search: Option<String>,
+    /// Page number for pagination
+    #[schema(default = "1")]
     pub page: Option<i32>,
+    /// Number of items per page
+    #[schema(default = "10")]
     pub size: Option<i32>,
 }
 

@@ -203,6 +203,18 @@ async fn execute_sql_file(pool: &Pool<Postgres>, file_path: &PathBuf) -> Result<
     Ok(())
 }
 
+#[utoipa::path(
+    get,
+    path = "/migration/run",
+    responses(
+        (status = 200, description = "Database migration completed successfully", body = ApiResponse<()>),
+        (status = 500, description = "Migration failed", body = ApiResponse<()>)
+    ),
+    security(
+        ("cookie_auth" = [])
+    ),
+    tag = "migration"
+)]
 pub async fn db_migration(
     app_state: web::Data<AppState>
 ) -> HttpResponse {

@@ -7,6 +7,23 @@ use log::{error, info};
 
 use crate::errors::ServiceError;
 
+/// Get current user information
+///
+/// Returns the current authenticated user's profile and associated stores
+#[utoipa::path(
+    get,
+    path = "/user",
+    responses(
+        (status = 200, description = "User profile retrieved successfully", body = ApiResponse<String>),
+        (status = 401, description = "Authentication required", body = ApiResponse<()>),
+        (status = 404, description = "User not found", body = ApiResponse<()>),
+        (status = 500, description = "Internal server error", body = ApiResponse<()>)
+    ),
+    security(
+        ("cookie_auth" = [])
+    ),
+    tag = "users"
+)]
 pub async fn get_user(req: HttpRequest, data: web::Data<AppState>) -> HttpResponse {
     // Extract token from cookie
     let cookie = match req.cookie("access_token") {

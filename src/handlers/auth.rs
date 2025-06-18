@@ -30,12 +30,29 @@ fn create_auth_cookie(token: &str) -> Cookie {
     cookie.finish()
 }
 
+/// Request for Google Authentication token
+///
+/// Contains the OAuth token received from Google authentication
 #[derive(Deserialize)]
 pub struct TokenRequest {
     #[serde(rename = "token")]
     access_token: String, // Renamed to make it used
 }
 
+/// Authenticate with Google
+///
+/// Validates Google OAuth token and returns JWT token
+#[utoipa::path(
+    post,
+    path = "/auth/google",
+    request_body = TokenRequest,
+    responses(
+        (status = 200, description = "Login successful", body = ApiResponse<String>),
+        (status = 401, description = "Authentication failed", body = ApiResponse<()>),
+        (status = 500, description = "Internal server error", body = ApiResponse<()>)
+    ),
+    tag = "auth"
+)]
 pub async fn google_login(
     token_req: web::Json<TokenRequest>,
     data: web::Data<AppState>,
@@ -126,6 +143,17 @@ pub async fn google_login(
     }
 }
 
+/// Logout user
+///
+/// Clears authentication cookie
+#[utoipa::path(
+    post,
+    path = "/auth/logout",
+    responses(
+        (status = 200, description = "Logout successful", body = ApiResponse<String>)
+    ),
+    tag = "auth"
+)]
 pub async fn logout() -> HttpResponse {
     // Build cookie with appropriate settings, matching login
     // Konsisten dengan login - tanpa domain

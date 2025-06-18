@@ -7,6 +7,25 @@ use crate::errors::ServiceError;
 use actix_web::{web, HttpResponse, HttpRequest};
 use log::{error, info};
 
+/// Get product categories
+///
+/// Returns a list of product categories with optional filtering and pagination
+#[utoipa::path(
+    get,
+    path = "/products/categories",
+    params(
+        ProductCategoryQueryParams
+    ),
+    responses(
+        (status = 200, description = "Product categories retrieved successfully", body = ApiResponse<Vec<ProductCategory>>),
+        (status = 401, description = "Authentication required", body = ApiResponse<()>),
+        (status = 500, description = "Internal server error", body = ApiResponse<()>)
+    ),
+    security(
+        ("cookie_auth" = [])
+    ),
+    tag = "products"
+)]
 pub async fn get_product_categories(
     req: HttpRequest,
     query: web::Query<ProductCategoryQueryParams>,
@@ -60,6 +79,24 @@ pub async fn get_product_categories(
     }
 }
 
+/// Create new product
+///
+/// Adds a new product to the database
+#[utoipa::path(
+    post,
+    path = "/products",
+    request_body = NewProduct,
+    responses(
+        (status = 201, description = "Product created successfully", body = ApiResponse<Product>),
+        (status = 400, description = "Invalid product data", body = ApiResponse<()>),
+        (status = 401, description = "Authentication required", body = ApiResponse<()>),
+        (status = 500, description = "Internal server error", body = ApiResponse<()>)
+    ),
+    security(
+        ("cookie_auth" = [])
+    ),
+    tag = "products"
+)]
 pub async fn create_product(
     req: HttpRequest,
     data: web::Data<AppState>,
@@ -117,6 +154,22 @@ pub async fn create_product(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/products",
+    params(
+        ProductQueryParams
+    ),
+    responses(
+        (status = 200, description = "Products retrieved successfully", body = ApiResponse<Vec<Product>>),
+        (status = 401, description = "Authentication required", body = ApiResponse<()>),
+        (status = 500, description = "Internal server error", body = ApiResponse<()>)
+    ),
+    security(
+        ("cookie_auth" = [])
+    ),
+    tag = "products"
+)]
 pub async fn get_products(
     req: HttpRequest,
     query: web::Query<ProductQueryParams>,
@@ -173,6 +226,23 @@ pub async fn get_products(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/products/{id}",
+    params(
+        ("id" = i32, Path, description = "Product ID to retrieve")
+    ),
+    responses(
+        (status = 200, description = "Product retrieved successfully", body = ApiResponse<Product>),
+        (status = 401, description = "Authentication required", body = ApiResponse<()>),
+        (status = 404, description = "Product not found", body = ApiResponse<()>),
+        (status = 500, description = "Internal server error", body = ApiResponse<()>)
+    ),
+    security(
+        ("cookie_auth" = [])
+    ),
+    tag = "products"
+)]
 pub async fn get_product_by_id(
     req: HttpRequest,
     path: web::Path<i32>,

@@ -1,10 +1,51 @@
 use crate::models::{AppState, response::ApiResponse};
-use crate::models::sales::{NewSalesCart, UpdateSalesCart, CreateOrderRequest, SalesReport, DetailedOrderResponse};
+use crate::models::sales::{NewSalesCart, UpdateSalesCart, CreateOrderRequest, SalesReport, DetailedOrderResponse, SalesReportQuery};
 use crate::services::db_service::DbConnectionManager;
 use crate::services::sales_service;
 use actix_web::{web, HttpResponse, HttpRequest};
+use serde::{Deserialize, Serialize};
+use utoipa::{IntoParams, ToSchema};
+
+#[derive(Debug, Deserialize, Serialize, ToSchema, IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct GetCartQuery {
+    /// Store ID to get cart items for
+    pub store_id: i32,
+}
+
+#[derive(Debug, Deserialize, Serialize, ToSchema, IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct ClearCartQuery {
+    /// Store ID to clear the cart for
+    pub store_id: i32,
+}
+
+#[derive(Debug, Deserialize, Serialize, ToSchema, IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct GetSalesReportQuery {
+    /// Start date for the report (YYYY-MM-DD)
+    pub start_date: chrono::NaiveDate,
+    /// End date for the report (YYYY-MM-DD)
+    pub end_date: chrono::NaiveDate,
+    /// Store ID (0 for all stores)
+    pub store_id: i32,
+}
 use log::{error, info};
 
+#[utoipa::path(
+    post,
+    path = "/sales/cart",
+    request_body = NewSalesCart,
+    responses(
+        (status = 201, description = "Item added to cart successfully", body = ApiResponse<SalesCart>),
+        (status = 401, description = "Authentication required", body = ApiResponse<()>),
+        (status = 500, description = "Internal server error", body = ApiResponse<()>)
+    ),
+    security(
+        ("cookie_auth" = [])
+    ),
+    tag = "sales"
+)]
 pub async fn add_to_cart(
     req: HttpRequest,
     data: web::Data<AppState>,
@@ -43,6 +84,23 @@ pub async fn add_to_cart(
     }
 }
 
+#[utoipa::path(
+    delete,
+    path = "/sales/cart/{id}",
+    params(
+        ("id" = i32, Path, description = "Cart item ID to delete")
+    ),
+    responses(
+        (status = 200, description = "Item deleted successfully", body = ApiResponse<String>),
+        (status = 401, description = "Authentication required", body = ApiResponse<()>),
+        (status = 404, description = "Item not found or not owned by user", body = ApiResponse<()>),
+        (status = 500, description = "Internal server error", body = ApiResponse<()>)
+    ),
+    security(
+        ("cookie_auth" = [])
+    ),
+    tag = "sales"
+)]
 pub async fn delete_from_cart(
     req: HttpRequest,
     data: web::Data<AppState>,
@@ -86,6 +144,22 @@ pub async fn delete_from_cart(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/sales/cart",
+    params(
+        GetCartQuery
+    ),
+    responses(
+        (status = 200, description = "Cart items retrieved successfully", body = ApiResponse<Vec<SalesCart>>),
+        (status = 401, description = "Authentication required", body = ApiResponse<()>),
+        (status = 500, description = "Internal server error", body = ApiResponse<()>)
+    ),
+    security(
+        ("cookie_auth" = [])
+    ),
+    tag = "sales"
+)]
 pub async fn get_cart_items(
     req: HttpRequest,
     data: web::Data<AppState>,
@@ -124,6 +198,24 @@ pub async fn get_cart_items(
     }
 }
 
+#[utoipa::path(
+    put,
+    path = "/sales/cart/{id}",
+    params(
+        ("id" = i32, Path, description = "Cart item ID to update")
+    ),
+    request_body = UpdateSalesCart,
+    responses(
+        (status = 200, description = "Item updated successfully", body = ApiResponse<SalesCart>),
+        (status = 401, description = "Authentication required", body = ApiResponse<()>),
+        (status = 404, description = "Item not found or not owned by user", body = ApiResponse<()>),
+        (status = 500, description = "Internal server error", body = ApiResponse<()>)
+    ),
+    security(
+        ("cookie_auth" = [])
+    ),
+    tag = "sales"
+)]
 pub async fn update_cart_item(
     req: HttpRequest,
     data: web::Data<AppState>,
@@ -163,6 +255,20 @@ pub async fn update_cart_item(
     }
 }
 
+#[utoipa::path(
+    post,
+    path = "/sales/order",
+    request_body = CreateOrderRequest,
+    responses(
+        (status = 201, description = "Order created successfully", body = ApiResponse<i32>),
+        (status = 401, description = "Authentication required", body = ApiResponse<()>),
+        (status = 500, description = "Internal server error", body = ApiResponse<()>)
+    ),
+    security(
+        ("cookie_auth" = [])
+    ),
+    tag = "sales"
+)]
 pub async fn create_order(
     req: HttpRequest,
     data: web::Data<AppState>,
@@ -201,18 +307,24 @@ pub async fn create_order(
     }
 }
 
-// Query parameters struct for get_cart_items
-#[derive(serde::Deserialize)]
-pub struct GetCartQuery {
-    pub store_id: i32,
-}
+// These query parameter structs are now defined at the top of the file
 
-// Query parameters struct for clear_cart
-#[derive(serde::Deserialize)]
-pub struct ClearCartQuery {
-    pub store_id: i32,
-}
-
+#[utoipa::path(
+    delete,
+    path = "/sales/cart/clear",
+    params(
+        ClearCartQuery
+    ),
+    responses(
+        (status = 200, description = "Cart cleared successfully", body = ApiResponse<String>),
+        (status = 401, description = "Authentication required", body = ApiResponse<()>),
+        (status = 500, description = "Internal server error", body = ApiResponse<()>)
+    ),
+    security(
+        ("cookie_auth" = [])
+    ),
+    tag = "sales"
+)]
 pub async fn clear_cart(
     req: HttpRequest,
     data: web::Data<AppState>,
@@ -256,14 +368,24 @@ pub async fn clear_cart(
     }
 }
 
-// Query parameters struct for sales reports
-#[derive(serde::Deserialize)]
-pub struct GetSalesReportQuery {
-    pub start_date: chrono::NaiveDate, 
-    pub end_date: chrono::NaiveDate,
-    pub store_id: i32, // 0 means all stores
-}
+// Query parameters structs are defined at the top of the file
 
+#[utoipa::path(
+    get,
+    path = "/sales/report",
+    params(
+        GetSalesReportQuery
+    ),
+    responses(
+        (status = 200, description = "Sales report generated successfully", body = ApiResponse<SalesReport>),
+        (status = 401, description = "Authentication required", body = ApiResponse<()>),
+        (status = 500, description = "Internal server error", body = ApiResponse<()>)
+    ),
+    security(
+        ("cookie_auth" = [])
+    ),
+    tag = "sales"
+)]
 pub async fn get_sales_report(
     req: HttpRequest,
     data: web::Data<AppState>,
@@ -310,6 +432,23 @@ pub async fn get_sales_report(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/sales/order/{id}",
+    params(
+        ("id" = i32, Path, description = "Sales order ID to retrieve")
+    ),
+    responses(
+        (status = 200, description = "Sales order retrieved successfully", body = ApiResponse<DetailedOrderResponse>),
+        (status = 401, description = "Authentication required", body = ApiResponse<()>),
+        (status = 404, description = "Order not found", body = ApiResponse<()>),
+        (status = 500, description = "Internal server error", body = ApiResponse<()>)
+    ),
+    security(
+        ("cookie_auth" = [])
+    ),
+    tag = "sales"
+)]
 pub async fn get_sales_order_by_id(
     req: HttpRequest,
     data: web::Data<AppState>,

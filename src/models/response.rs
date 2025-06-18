@@ -1,12 +1,15 @@
 use serde::Serialize;
+use utoipa::ToSchema;
 
-#[derive(Serialize)]
+// Using a simpler implementation to avoid generic trait bound issues
+#[derive(Serialize, ToSchema)]
 pub struct ApiResponse<T>
 where
     T: Serialize,
 {
     pub status: String,
     pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<T>,
 }
 
@@ -18,9 +21,23 @@ impl<T: Serialize> ApiResponse<T> {
             data: Some(data),
         }
     }
-    
-    pub fn error(message: &str) -> ApiResponse<serde_json::Value> {
-        ApiResponse {
+}
+
+// Special implementation for error responses that doesn't require generic type parameter
+impl ApiResponse<()> {
+    pub fn error(message: &str) -> Self {
+        Self {
+            status: "error".to_string(),
+            message: message.to_string(),
+            data: None,
+        }
+    }
+}
+
+// Add support for using error with JsonValue (commonly used in handlers)
+impl ApiResponse<serde_json::Value> {
+    pub fn error(message: &str) -> Self {
+        Self {
             status: "error".to_string(),
             message: message.to_string(),
             data: None,

@@ -12,6 +12,7 @@ A Point of Sale (POS) backend system built with Rust and Actix-web, featuring Go
 - Structured error handling
 - Health check endpoints
 - Role-based access control
+- OpenAPI/Swagger documentation (available only in development mode)
 
 ## Project Structure
 
@@ -64,7 +65,7 @@ GOOGLE_CLIENT_SECRET=your_client_secret_here
 JWT_SECRET=your_jwt_secret_here
 
 # Application settings
-ENVIRONMENT=development
+ENVIRONMENT=development  # Set to 'production' to disable Swagger UI
 FRONTEND_URLS=http://localhost:3000,https://your-production-url.com
 PORT=8080
 ```
@@ -108,14 +109,14 @@ cp .env.example .env
 4. Development
 
 ```bash
-# Run in development mode with auto-reload (if cargo-watch is installed)
+# Install cargo-watch for auto-reload during development
+cargo install cargo-watch
+
+# Run in development mode with auto-reload (Swagger UI enabled)
 cargo watch -x run
 
 # Or run normally
 cargo run
-
-# Running on different port (if default port 8080 is in use)
-PORT=8081 cargo run
 
 # Set up the database tables automatically (adjust port number if changed)
 curl http://localhost:8080/db-migration
@@ -125,9 +126,7 @@ curl http://localhost:8081/db-migration
 
 5. Build for production
 
-```bash
-cargo build --release
-```
+Read `.github/workflows/prod.yml`
 
 ## API Documentation
 

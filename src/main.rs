@@ -1,3 +1,4 @@
+mod docs;
 mod errors;
 mod handlers;
 mod middleware;
@@ -10,6 +11,8 @@ use actix_cors::Cors;
 use actix_web::{
     get, http::header, middleware as actix_middleware, web, App, HttpResponse, HttpServer,
 };
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 use dotenv::dotenv;
 use env_logger::{Builder, Env};
 use log::{info, LevelFilter};
@@ -54,9 +57,15 @@ async fn main() -> io::Result<()> {
 
     // Get port from environment variable or use default 8080
     let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
-    let addr = format!("0.0.0.0:{}", port);
+    let addr_str = format!("0.0.0.0:{}", port);
     
-    info!("Server starting at http://{}", addr);
+    // Check if we're in development mode
+    let is_dev = env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string()) != "production";
+    
+    info!("Server starting at http://{} in {} mode", addr_str, if is_dev { "development" } else { "production" });
+
+    // Store server address for later use
+    let server_addr = addr_str.clone();
 
     HttpServer::new(move || {
         // Initialize CORS configuration with proper headers for cookie support
@@ -88,16 +97,28 @@ async fn main() -> io::Result<()> {
             cors = cors.allowed_origin(origin);
         }
 
-        App::new()
+        let mut app = App::new()
             .app_data(web::Data::new(AppState {
                 db_connection_string: database_url.clone(),
             }))
             .wrap(cors)
             .wrap(AuthMiddleware)
             .wrap(actix_middleware::Logger::default())
-            .configure(routes::configure_routes)
+            .configure(routes::configure_routes);
+            
+        // Add Swagger UI only in development mode
+        if is_dev {
+            info!("Swagger UI available at http://{}/swagger-ui/", server_addr);
+            let openapi = docs::ApiDoc::openapi();
+            app = app.service(
+                SwaggerUi::new("/swagger-ui/{_:.*}")
+                    .url("/api-docs/openapi.json", openapi)
+            );
+        }
+        
+        app
     })
-    .bind(&addr)?
+    .bind(&addr_str)?
     .run()
     .await
 }

@@ -2,8 +2,9 @@ use chrono::{DateTime, Utc, NaiveDate};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use rust_decimal::Decimal;
+use utoipa::ToSchema;
 
-#[derive(Debug, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct SalesCart {
     pub id: i32,
     pub user_id: i32,
@@ -19,7 +20,7 @@ pub struct SalesCart {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct NewSalesCart {
     pub store_id: i32,
     pub product_id: i32,
@@ -31,7 +32,7 @@ pub struct NewSalesCart {
     pub sale_price: Option<Decimal>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct UpdateSalesCart {
     pub base_price: Option<Decimal>,
     pub qty: Option<i32>,
@@ -68,7 +69,7 @@ pub struct SalesOrderDetail {
     pub total_price: Decimal,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct CreateOrderRequest {
     pub order_number: String,
     pub store_id: i32,
@@ -125,7 +126,7 @@ pub struct DetailedSalesOrderDetail {
 }
 
 // Sales Report models moved from sales_report.rs
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct SalesReportQuery {
     pub start_date: NaiveDate,
     pub end_date: NaiveDate,
@@ -158,7 +159,7 @@ pub struct SkuSummaryItem {
     pub total_price: Decimal,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct SalesSummary {
     pub total_payment_cash: Decimal,
     pub total_payment_non_cash: Decimal,
@@ -166,7 +167,7 @@ pub struct SalesSummary {
     pub total_orders: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct SalesReport {
     pub orders: Vec<SalesReportOrder>,
     pub sku_summary: Vec<SkuSummaryItem>,
