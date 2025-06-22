@@ -1,4 +1,3 @@
-// file: /Users/catalyst/Documents/playground/pos-be/src/services/product_service.rs
 use crate::errors::ServiceError;
 use crate::models::product::{ProductCategory, PaginatedResponse, NewProduct, Product};
 use crate::services::db_service::DbConnectionManager;
@@ -85,7 +84,7 @@ pub async fn get_product_categories(
 pub async fn create_product(
     db_manager: &DbConnectionManager,
     new_product: NewProduct,
-    company_id: i32, // Added company_id as a separate parameter
+    company_id: i32,
 ) -> Result<Product, ServiceError> {
     let pool = match db_manager.get_pool().await {
         Ok(pool) => pool,
@@ -106,7 +105,7 @@ pub async fn create_product(
     .bind(&new_product.name)
     .bind(&new_product.purchase_price)
     .bind(&new_product.sale_price)
-    .bind(company_id) // Use the company_id from the authenticated user
+    .bind(company_id)
     .bind(&new_product.unit_name)
     .bind(&new_product.category_id)
     .map(|row: sqlx::postgres::PgRow| {

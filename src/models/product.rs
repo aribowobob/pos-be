@@ -1,5 +1,4 @@
-// file: /Users/catalyst/Documents/playground/pos-be/src/models/product.rs
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use rust_decimal::Decimal;
 use utoipa::{ToSchema, IntoParams};
@@ -10,19 +9,19 @@ pub struct ProductCategory {
     pub name: String,
     pub description: Option<String>,
     pub parent_id: Option<i32>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
 }
 
 #[derive(Serialize, Deserialize, ToSchema, IntoParams)]
 #[into_params(parameter_in = Query)]
 pub struct ProductCategoryQueryParams {
-    /// Optional search term to filter categories
+    // Optional search term to filter categories
     pub search: Option<String>,
-    /// Page number for pagination
+    // Page number for pagination
     #[schema(default = "1")]
     pub page: Option<i32>,
-    /// Number of items per page
+    // Number of items per page
     #[schema(default = "10")]
     pub size: Option<i32>,
 }
@@ -36,9 +35,9 @@ pub struct Product {
     pub sale_price: Decimal,
     pub company_id: i32,
     pub unit_name: Option<String>,
-    pub deleted_at: Option<DateTime<Utc>>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<NaiveDateTime>,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
     pub category_id: Option<i32>,
 }
 
@@ -55,12 +54,12 @@ pub struct NewProduct {
 #[derive(Serialize, Deserialize, ToSchema, IntoParams)]
 #[into_params(parameter_in = Query)]
 pub struct ProductQueryParams {
-    /// Optional search term to filter products
+    // Optional search term to filter products
     pub search: Option<String>,
-    /// Page number for pagination
+    // Page number for pagination
     #[schema(default = "1")]
     pub page: Option<i32>,
-    /// Number of items per page
+    // Number of items per page
     #[schema(default = "10")]
     pub size: Option<i32>,
 }

@@ -1,4 +1,3 @@
-// filepath: /Users/catalyst/Documents/playground/pos-be/src/handlers/migration.rs
 use crate::models::{AppState, ApiResponse};
 use actix_web::{web, HttpResponse};
 use log::{info, error, debug, warn};

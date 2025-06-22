@@ -1,4 +1,3 @@
-// file: /Users/catalyst/Documents/playground/pos-be/src/handlers/product.rs
 use crate::models::{AppState, response::ApiResponse};
 use crate::models::product::{ProductCategoryQueryParams, ProductQueryParams, NewProduct};
 use crate::services::db_service::DbConnectionManager;
@@ -7,9 +6,8 @@ use crate::errors::ServiceError;
 use actix_web::{web, HttpResponse, HttpRequest};
 use log::{error, info};
 
-/// Get product categories
-///
-/// Returns a list of product categories with optional filtering and pagination
+// Get product categories
+// Returns a list of product categories with optional filtering and pagination
 #[utoipa::path(
     get,
     path = "/products/categories",
@@ -79,9 +77,8 @@ pub async fn get_product_categories(
     }
 }
 
-/// Create new product
-///
-/// Adds a new product to the database
+// Create new product
+// Adds a new product to the database
 #[utoipa::path(
     post,
     path = "/products",
