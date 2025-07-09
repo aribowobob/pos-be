@@ -1,4 +1,4 @@
-use crate::models::{response::ApiResponse, AppState};
+use crate::models::{response::ApiResponse, AppState, auth::TokenRequest};
 use crate::services::auth::{create_jwt, get_user_by_email};
 use crate::services::db_service::DbConnectionManager;
 use actix_web::{cookie::Cookie, web, HttpResponse};
@@ -30,22 +30,13 @@ fn create_auth_cookie(token: &str) -> Cookie {
     cookie.finish()
 }
 
-/// Request for Google Authentication token
-///
-/// Contains the OAuth token received from Google authentication
-#[derive(Deserialize)]
-pub struct TokenRequest {
-    #[serde(rename = "token")]
-    access_token: String, // Renamed to make it used
-}
-
 /// Authenticate with Google
 ///
 /// Validates Google OAuth token and returns JWT token
 #[utoipa::path(
     post,
     path = "/auth/google",
-    request_body = TokenRequest,
+    request_body(content = TokenRequest, description = "Google OAuth token", content_type = "application/json"),
     responses(
         (status = 200, description = "Login successful", body = ApiResponse<String>),
         (status = 401, description = "Authentication failed", body = ApiResponse<()>),
@@ -58,6 +49,8 @@ pub async fn google_login(
     data: web::Data<AppState>,
 ) -> HttpResponse {
     info!("Processing Google login");
+    debug!("Received token request: {:?}", token_req);
+    debug!("Token value: '{}'", token_req.access_token);
     
     // Verify Google token using the improved verification function
     let user_info_result = crate::services::google_auth::verify_google_token(&token_req.access_token).await;

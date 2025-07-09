@@ -82,7 +82,7 @@ pub async fn get_product_categories(
 #[utoipa::path(
     post,
     path = "/api/products",
-    request_body = NewProduct,
+    request_body(content = NewProduct, description = "Product data to create", content_type = "application/json"),
     responses(
         (status = 201, description = "Product created successfully", body = ApiResponse<Product>),
         (status = 400, description = "Invalid product data", body = ApiResponse<()>),

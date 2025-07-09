@@ -43,11 +43,17 @@ pub struct Product {
 
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct NewProduct {
+    #[schema(example = "SKU001")]
     pub sku: String,
+    #[schema(example = "Sample Product")]
     pub name: String,
+    #[schema(example = "10.50", value_type = String)]
     pub purchase_price: Decimal,
+    #[schema(example = "15.99", value_type = String)]
     pub sale_price: Decimal,
+    #[schema(example = "piece")]
     pub unit_name: Option<String>,
+    #[schema(example = 1)]
     pub category_id: Option<i32>,
 }
 

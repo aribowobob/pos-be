@@ -17,5 +17,7 @@ pub struct Claims {
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct TokenRequest {
+    #[serde(rename = "token")]
+    #[schema(example = "ya29.a0ARrdaM9...")]
     pub access_token: String,
 }

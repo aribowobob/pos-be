@@ -22,21 +22,33 @@ pub struct SalesCart {
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct NewSalesCart {
+    #[schema(example = 1)]
     pub store_id: i32,
+    #[schema(example = 1)]
     pub product_id: i32,
+    #[schema(example = "15.99", value_type = String)]
     pub base_price: Decimal,
+    #[schema(example = 2)]
     pub qty: i32,
+    #[schema(example = "percentage")]
     pub discount_type: Option<String>,
+    #[schema(example = 10)]
     pub discount_value: Option<i32>,
+    #[schema(example = "1.60", value_type = String)]
     pub discount_amount: Option<Decimal>,
+    #[schema(example = "30.38", value_type = String)]
     pub sale_price: Option<Decimal>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct UpdateSalesCart {
+    #[schema(example = "18.99", value_type = String)]
     pub base_price: Option<Decimal>,
+    #[schema(example = 3)]
     pub qty: Option<i32>,
+    #[schema(example = "fixed")]
     pub discount_type: Option<String>,
+    #[schema(example = 5)]
     pub discount_value: Option<i32>,
 }
 
@@ -71,11 +83,17 @@ pub struct SalesOrderDetail {
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct CreateOrderRequest {
+    #[schema(example = "ORD001")]
     pub order_number: String,
+    #[schema(example = 1)]
     pub store_id: i32,
+    #[schema(example = "2025-07-09")]
     pub date: Option<NaiveDate>,
+    #[schema(example = "50.00", value_type = String)]
     pub payment_cash: Decimal,
+    #[schema(example = "0.00", value_type = String)]
     pub payment_non_cash: Decimal,
+    #[schema(example = 1)]
     pub customer_id: Option<i32>,
 }
 

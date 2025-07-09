@@ -35,7 +35,7 @@ use log::{error, info};
 #[utoipa::path(
     post,
     path = "/api/sales/cart",
-    request_body = NewSalesCart,
+    request_body(content = NewSalesCart, description = "Item to add to cart", content_type = "application/json"),
     responses(
         (status = 201, description = "Item added to cart successfully", body = ApiResponse<SalesCart>),
         (status = 401, description = "Authentication required", body = ApiResponse<()>),
@@ -204,7 +204,7 @@ pub async fn get_cart_items(
     params(
         ("id" = i32, Path, description = "Cart item ID to update")
     ),
-    request_body = UpdateSalesCart,
+    request_body(content = UpdateSalesCart, description = "Cart item updates", content_type = "application/json"),
     responses(
         (status = 200, description = "Item updated successfully", body = ApiResponse<SalesCart>),
         (status = 401, description = "Authentication required", body = ApiResponse<()>),
@@ -258,7 +258,7 @@ pub async fn update_cart_item(
 #[utoipa::path(
     post,
     path = "/api/sales/orders",
-    request_body = CreateOrderRequest,
+    request_body(content = CreateOrderRequest, description = "Order details to create", content_type = "application/json"),
     responses(
         (status = 201, description = "Order created successfully", body = ApiResponse<i32>),
         (status = 401, description = "Authentication required", body = ApiResponse<()>),

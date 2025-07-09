@@ -45,7 +45,7 @@ async fn main() -> io::Result<()> {
     let frontend_urls: Vec<String> = env::var("FRONTEND_URLS")
         .unwrap_or_else(|_| {
             // Default: allow both localhost and the production URL
-            "http://localhost:3000,https://your-production-url.com,https://staging-url.com".to_string()
+            "http://localhost:3000,http://localhost:3001,http://localhost:8080,https://your-production-url.com,https://staging-url.com".to_string()
         })
         .split(',')
         .map(|s| s.trim().to_string())
