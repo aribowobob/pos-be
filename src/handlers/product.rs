@@ -10,7 +10,7 @@ use log::{error, info};
 // Returns a list of product categories with optional filtering and pagination
 #[utoipa::path(
     get,
-    path = "/products/categories",
+    path = "/api/products/categories",
     params(
         ProductCategoryQueryParams
     ),
@@ -81,7 +81,7 @@ pub async fn get_product_categories(
 // Adds a new product to the database
 #[utoipa::path(
     post,
-    path = "/products",
+    path = "/api/products",
     request_body = NewProduct,
     responses(
         (status = 201, description = "Product created successfully", body = ApiResponse<Product>),
@@ -153,7 +153,7 @@ pub async fn create_product(
 
 #[utoipa::path(
     get,
-    path = "/products",
+    path = "/api/products",
     params(
         ProductQueryParams
     ),
@@ -225,7 +225,7 @@ pub async fn get_products(
 
 #[utoipa::path(
     get,
-    path = "/products/{id}",
+    path = "/api/products/{id}",
     params(
         ("id" = i32, Path, description = "Product ID to retrieve")
     ),

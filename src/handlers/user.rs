@@ -12,7 +12,7 @@ use crate::errors::ServiceError;
 /// Returns the current authenticated user's profile and associated stores
 #[utoipa::path(
     get,
-    path = "/user",
+    path = "/api/users/get-user",
     responses(
         (status = 200, description = "User profile retrieved successfully", body = ApiResponse<String>),
         (status = 401, description = "Authentication required", body = ApiResponse<()>),

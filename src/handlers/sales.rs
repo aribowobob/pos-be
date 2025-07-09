@@ -34,7 +34,7 @@ use log::{error, info};
 
 #[utoipa::path(
     post,
-    path = "/sales/cart",
+    path = "/api/sales/cart",
     request_body = NewSalesCart,
     responses(
         (status = 201, description = "Item added to cart successfully", body = ApiResponse<SalesCart>),
@@ -86,7 +86,7 @@ pub async fn add_to_cart(
 
 #[utoipa::path(
     delete,
-    path = "/sales/cart/{id}",
+    path = "/api/sales/cart/{id}",
     params(
         ("id" = i32, Path, description = "Cart item ID to delete")
     ),
@@ -146,7 +146,7 @@ pub async fn delete_from_cart(
 
 #[utoipa::path(
     get,
-    path = "/sales/cart",
+    path = "/api/sales/cart",
     params(
         GetCartQuery
     ),
@@ -200,7 +200,7 @@ pub async fn get_cart_items(
 
 #[utoipa::path(
     put,
-    path = "/sales/cart/{id}",
+    path = "/api/sales/cart/{id}",
     params(
         ("id" = i32, Path, description = "Cart item ID to update")
     ),
@@ -257,7 +257,7 @@ pub async fn update_cart_item(
 
 #[utoipa::path(
     post,
-    path = "/sales/order",
+    path = "/api/sales/orders",
     request_body = CreateOrderRequest,
     responses(
         (status = 201, description = "Order created successfully", body = ApiResponse<i32>),
@@ -311,7 +311,7 @@ pub async fn create_order(
 
 #[utoipa::path(
     delete,
-    path = "/sales/cart/clear",
+    path = "/api/sales/cart/clear",
     params(
         ClearCartQuery
     ),
@@ -372,7 +372,7 @@ pub async fn clear_cart(
 
 #[utoipa::path(
     get,
-    path = "/sales/report",
+    path = "/api/sales/report",
     params(
         GetSalesReportQuery
     ),
@@ -434,7 +434,7 @@ pub async fn get_sales_report(
 
 #[utoipa::path(
     get,
-    path = "/sales/order/{id}",
+    path = "/api/sales/orders/{id}",
     params(
         ("id" = i32, Path, description = "Sales order ID to retrieve")
     ),
