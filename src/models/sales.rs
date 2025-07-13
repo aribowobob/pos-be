@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc, NaiveDate};
+use chrono::{DateTime, Utc, NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use rust_decimal::Decimal;
@@ -16,8 +16,25 @@ pub struct SalesCart {
     pub discount_value: i32,
     pub discount_amount: Decimal,
     pub sale_price: Decimal,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct SalesCartResponse {
+    pub id: i32,
+    pub user_id: i32,
+    pub store_id: i32,
+    pub product_id: i32,
+    pub product_name: String,
+    pub base_price: Decimal,
+    pub qty: i32,
+    pub discount_type: String,
+    pub discount_value: i32,
+    pub discount_amount: Decimal,
+    pub sale_price: Decimal,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -63,7 +80,7 @@ pub struct SalesOrder {
     pub payment_cash: Decimal,
     pub payment_non_cash: Decimal,
     pub receivable: Decimal,
-    pub created_at: DateTime<Utc>,
+    pub created_at: NaiveDateTime,
     pub customer_id: Option<i32>,
 }
 

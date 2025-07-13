@@ -1,5 +1,5 @@
 use crate::errors::ServiceError;
-use crate::models::sales::{SalesCart, NewSalesCart, UpdateSalesCart, SalesOrder, SalesOrderDetail, CreateOrderRequest, OrderResponse,
+use crate::models::sales::{SalesCart, SalesCartResponse, NewSalesCart, UpdateSalesCart, SalesOrder, SalesOrderDetail, CreateOrderRequest, OrderResponse,
     SalesReport, SalesReportOrder, SkuSummaryItem, SalesSummary, SalesReportQuery, 
     DetailedOrderResponse, DetailedSalesOrder, DetailedSalesOrderDetail};
 use crate::services::db_service::DbConnectionManager;
@@ -130,7 +130,7 @@ pub async fn get_cart_items(
     db_manager: &DbConnectionManager,
     user_id: i32,
     store_id: i32,
-) -> Result<Vec<SalesCart>, ServiceError> {
+) -> Result<Vec<SalesCartResponse>, ServiceError> {
     let pool = match db_manager.get_pool().await {
         Ok(pool) => pool,
         Err(e) => {
@@ -139,23 +139,25 @@ pub async fn get_cart_items(
         }
     };
 
-    // Execute query to get all cart items for the user and store
+    // Execute query to get all cart items for the user and store with product names
     let cart_items = match sqlx::query(
-        "SELECT id, user_id, store_id, product_id, base_price, qty, 
-                discount_type, discount_value, discount_amount, sale_price, 
-                created_at, updated_at 
-         FROM sales_cart 
-         WHERE user_id = $1 AND store_id = $2 
-         ORDER BY created_at DESC"
+        "SELECT sc.id, sc.user_id, sc.store_id, sc.product_id, p.name as product_name,
+                sc.base_price, sc.qty, sc.discount_type, sc.discount_value, 
+                sc.discount_amount, sc.sale_price, sc.created_at, sc.updated_at 
+         FROM sales_cart sc
+         INNER JOIN products p ON sc.product_id = p.id
+         WHERE sc.user_id = $1 AND sc.store_id = $2 
+         ORDER BY sc.created_at DESC"
     )
     .bind(user_id)
     .bind(store_id)
     .try_map(|row: sqlx::postgres::PgRow| {
-        Ok(SalesCart {
+        Ok(SalesCartResponse {
             id: row.try_get("id")?,
             user_id: row.try_get("user_id")?,
             store_id: row.try_get("store_id")?,
             product_id: row.try_get("product_id")?,
+            product_name: row.try_get("product_name")?,
             base_price: row.try_get("base_price")?,
             qty: row.try_get("qty")?,
             discount_type: row.try_get("discount_type")?,

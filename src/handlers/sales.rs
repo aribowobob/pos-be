@@ -1,5 +1,5 @@
 use crate::models::{AppState, response::ApiResponse};
-use crate::models::sales::{NewSalesCart, UpdateSalesCart, CreateOrderRequest, SalesReport, DetailedOrderResponse, SalesReportQuery};
+use crate::models::sales::{SalesCartResponse, NewSalesCart, UpdateSalesCart, CreateOrderRequest, SalesReport, DetailedOrderResponse, SalesReportQuery};
 use crate::services::db_service::DbConnectionManager;
 use crate::services::sales_service;
 use actix_web::{web, HttpResponse, HttpRequest};
@@ -151,7 +151,7 @@ pub async fn delete_from_cart(
         GetCartQuery
     ),
     responses(
-        (status = 200, description = "Cart items retrieved successfully", body = ApiResponse<Vec<SalesCart>>),
+        (status = 200, description = "Cart items retrieved successfully", body = ApiResponse<Vec<SalesCartResponse>>),
         (status = 401, description = "Authentication required", body = ApiResponse<()>),
         (status = 500, description = "Internal server error", body = ApiResponse<()>)
     ),

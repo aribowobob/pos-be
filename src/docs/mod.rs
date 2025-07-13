@@ -11,7 +11,7 @@ use crate::{
         product::{ProductCategoryQueryParams, NewProduct, ProductQueryParams, ProductCategory, Product},
         response::ApiResponse,
         sales::{
-            UpdateSalesCart, CreateOrderRequest, SalesReportQuery, SalesReport, SalesCart, 
+            UpdateSalesCart, CreateOrderRequest, SalesReportQuery, SalesReport, SalesCart, SalesCartResponse,
             NewSalesCart, SalesSummary, DetailedOrderResponse
         },
         user::User,
@@ -40,6 +40,8 @@ use self::schemas::{StringResponse, UnitResponse};
         crate::handlers::product::get_product_by_id,
         
         // Sales endpoints
+        crate::handlers::sales::add_to_cart,
+        crate::handlers::sales::delete_from_cart,
         crate::handlers::sales::get_cart_items,
         crate::handlers::sales::update_cart_item,
         crate::handlers::sales::create_order,
@@ -56,8 +58,8 @@ use self::schemas::{StringResponse, UnitResponse};
             ApiResponse<()>,
             ApiResponse<Product>,
             ApiResponse<Vec<ProductCategory>>,
-            ApiResponse<SalesCart>,
-            ApiResponse<Vec<SalesCart>>,
+            ApiResponse<SalesCartResponse>,
+            ApiResponse<Vec<SalesCartResponse>>,
             ApiResponse<User>,
             StringResponse,
             UnitResponse,
@@ -69,11 +71,13 @@ use self::schemas::{StringResponse, UnitResponse};
             ProductQueryParams,
             GetCartQuery,
             ClearCartQuery,
+            NewSalesCart,
             UpdateSalesCart,
             CreateOrderRequest,
             GetSalesReportQuery,
             SalesReport,
-            SalesCart
+            SalesCart,
+            SalesCartResponse
         )
     ),
     modifiers(&SecurityAddon),
