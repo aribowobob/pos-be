@@ -141,7 +141,7 @@ pub async fn get_cart_items(
 
     // Execute query to get all cart items for the user and store with product names
     let cart_items = match sqlx::query(
-        "SELECT sc.id, sc.user_id, sc.store_id, sc.product_id, p.name as product_name,
+        "SELECT sc.id, sc.user_id, sc.store_id, sc.product_id, p.name as product_name, p.unit_name,
                 sc.base_price, sc.qty, sc.discount_type, sc.discount_value, 
                 sc.discount_amount, sc.sale_price, sc.created_at, sc.updated_at 
          FROM sales_cart sc
@@ -158,6 +158,7 @@ pub async fn get_cart_items(
             store_id: row.try_get("store_id")?,
             product_id: row.try_get("product_id")?,
             product_name: row.try_get("product_name")?,
+            unit_name: row.try_get("unit_name")?,
             base_price: row.try_get("base_price")?,
             qty: row.try_get("qty")?,
             discount_type: row.try_get("discount_type")?,

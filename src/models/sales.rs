@@ -27,6 +27,7 @@ pub struct SalesCartResponse {
     pub store_id: i32,
     pub product_id: i32,
     pub product_name: String,
+    pub unit_name: Option<String>,
     pub base_price: Decimal,
     pub qty: i32,
     pub discount_type: String,
