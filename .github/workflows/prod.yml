@@ -141,16 +141,14 @@ jobs:
       - name: Setup SSH Configuration
         run: |
           mkdir -p ~/.ssh
-          cat > ~/.ssh/config << 'EOF'
-Host *
-    StrictHostKeyChecking no
-    UserKnownHostsFile /dev/null
-    ConnectTimeout 30
-    ServerAliveInterval 60
-    ServerAliveCountMax 3
-    TCPKeepAlive yes
-    Compression yes
-EOF
+          echo "Host *" > ~/.ssh/config
+          echo "    StrictHostKeyChecking no" >> ~/.ssh/config
+          echo "    UserKnownHostsFile /dev/null" >> ~/.ssh/config
+          echo "    ConnectTimeout 30" >> ~/.ssh/config
+          echo "    ServerAliveInterval 60" >> ~/.ssh/config
+          echo "    ServerAliveCountMax 3" >> ~/.ssh/config
+          echo "    TCPKeepAlive yes" >> ~/.ssh/config
+          echo "    Compression yes" >> ~/.ssh/config
           chmod 600 ~/.ssh/config
 
       - name: Deploy to Digital Ocean Droplet
@@ -186,14 +184,12 @@ EOF
 
           # Create .env file on server with a single command
           echo "Creating .env file on server..."
-          sshpass -e ssh -o ConnectTimeout=30 -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "cat > /root/pos-app/.env" << EOF
-POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-JWT_SECRET=${{ secrets.JWT_SECRET || 'default_jwt_secret_for_production' }}
-FRONTEND_URLS=${{ vars.FRONTEND_URLS || 'http://localhost:3000,https://your-production-url.com,https://staging-url.com' }}
-GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
-GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
-ENVIRONMENT=production
-EOF
+          sshpass -e ssh -o ConnectTimeout=30 -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}' > /root/pos-app/.env"
+          sshpass -e ssh -o ConnectTimeout=30 -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'JWT_SECRET=${{ secrets.JWT_SECRET || 'default_jwt_secret_for_production' }}' >> /root/pos-app/.env"
+          sshpass -e ssh -o ConnectTimeout=30 -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'FRONTEND_URLS=${{ vars.FRONTEND_URLS || 'http://localhost:3000,https://your-production-url.com,https://staging-url.com' }}' >> /root/pos-app/.env"
+          sshpass -e ssh -o ConnectTimeout=30 -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}' >> /root/pos-app/.env"
+          sshpass -e ssh -o ConnectTimeout=30 -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}' >> /root/pos-app/.env"
+          sshpass -e ssh -o ConnectTimeout=30 -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'ENVIRONMENT=production' >> /root/pos-app/.env"
 
           # Create Docker Hub credentials file on server
           echo "Creating Docker Hub credentials file on server..."
