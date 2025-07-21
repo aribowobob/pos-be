@@ -32,20 +32,46 @@ impl DbConnectionManager {
             info!("Existing database connection is no longer valid, recreating...");
         }
 
-        // Create a new pool with timeout
+        info!("Creating new database connection pool...");
+        info!("Connection string host: {}", 
+            if self.connection_string.contains("@db:") { "db (docker service)" } 
+            else if self.connection_string.contains("@localhost:") { "localhost" }
+            else { "unknown" }
+        );
+
+        // Create a new pool with longer timeouts for Docker environment
         match PgPoolOptions::new()
-            .max_connections(5)
-            .acquire_timeout(Duration::from_secs(3))
+            .max_connections(10)
+            .min_connections(1)
+            .acquire_timeout(Duration::from_secs(30))  // Increased timeout
+            .idle_timeout(Duration::from_secs(600))    // 10 minutes idle timeout
+            .max_lifetime(Duration::from_secs(1800))   // 30 minutes max lifetime
+            .connect_timeout(Duration::from_secs(30))  // 30 seconds to establish connection
             .connect(&self.connection_string)
             .await
         {
             Ok(new_pool) => {
-                info!("Successfully established database connection");
-                *pool_lock = Some(new_pool.clone());
-                Ok(new_pool)
+                info!("Successfully established database connection pool");
+                
+                // Test the connection immediately
+                match new_pool.acquire().await {
+                    Ok(_conn) => {
+                        info!("Connection pool test successful");
+                        *pool_lock = Some(new_pool.clone());
+                        Ok(new_pool)
+                    },
+                    Err(e) => {
+                        error!("Failed to acquire connection from new pool: {}", e);
+                        Err(ServiceError::DatabaseConnectionError)
+                    }
+                }
             }
             Err(e) => {
-                error!("Failed to connect to database: {}", e);
+                error!("Failed to create database connection pool: {}", e);
+                error!("Connection string format check: {}", 
+                    if self.connection_string.starts_with("postgres://") { "valid postgres:// prefix" }
+                    else { "invalid connection string format" }
+                );
                 Err(ServiceError::DatabaseConnectionError)
             }
         }
