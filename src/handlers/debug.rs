@@ -63,11 +63,27 @@ pub async fn debug_db_connection(app_state: web::Data<AppState>) -> HttpResponse
                 }
             }
         }
+        
+        // Check if it contains placeholder variables (not substituted)
+        if db_url.contains("${") {
+            debug_info.insert("env_substitution".to_string(), "variables_not_substituted".to_string());
+        } else {
+            debug_info.insert("env_substitution".to_string(), "appears_substituted".to_string());
+        }
     } else {
         debug_info.insert("scheme".to_string(), "unknown".to_string());
     }
     
     debug_info.insert("connection_string_length".to_string(), db_url.len().to_string());
+    
+    // Add partial connection string for debugging (first and last 10 chars, hide middle)
+    if db_url.len() > 20 {
+        let start = &db_url[..10];
+        let end = &db_url[db_url.len()-10..];
+        debug_info.insert("connection_string_preview".to_string(), format!("{}...{}", start, end));
+    } else {
+        debug_info.insert("connection_string_preview".to_string(), "too_short".to_string());
+    }
     
     match db_service::get_db_pool(&app_state.db_connection_string).await {
         Ok(pool) => {
