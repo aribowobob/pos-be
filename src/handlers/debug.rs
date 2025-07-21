@@ -3,6 +3,8 @@ use log::info;
 use std::env;
 use std::collections::HashMap;
 use crate::models::response::ApiResponse;
+use crate::models::app_state::AppState;
+use crate::services::db_service;
 
 pub async fn debug_env() -> HttpResponse {
     info!("Processing debug_env request");
@@ -37,4 +39,40 @@ pub async fn debug_env() -> HttpResponse {
         message: "Environment variables status".to_string(),
         data: Some(env_map),
     })
+}
+
+pub async fn debug_db_connection(app_state: web::Data<AppState>) -> HttpResponse {
+    info!("Testing database connection");
+    
+    match db_service::get_db_pool(&app_state.db_connection_string).await {
+        Ok(pool) => {
+            // Try to execute a simple query
+            match sqlx::query("SELECT 1").fetch_one(&pool).await {
+                Ok(_) => {
+                    info!("Database connection test successful");
+                    HttpResponse::Ok().json(ApiResponse {
+                        status: "success".to_string(),
+                        message: "Database connection successful".to_string(),
+                        data: Some("Connected and query executed successfully"),
+                    })
+                },
+                Err(e) => {
+                    info!("Database query failed: {}", e);
+                    HttpResponse::InternalServerError().json(ApiResponse {
+                        status: "error".to_string(),
+                        message: format!("Database query failed: {}", e),
+                        data: None::<()>,
+                    })
+                }
+            }
+        },
+        Err(e) => {
+            info!("Database connection failed: {:?}", e);
+            HttpResponse::InternalServerError().json(ApiResponse {
+                status: "error".to_string(),
+                message: format!("Database connection failed: {:?}", e),
+                data: None::<()>,
+            })
+        }
+    }
 }
