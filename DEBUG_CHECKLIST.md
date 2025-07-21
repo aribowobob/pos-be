@@ -86,6 +86,7 @@
 4. ✅ Enhanced health check intervals for PostgreSQL
 5. ✅ Added explicit POSTGRES_USER environment variable
 6. ✅ Added connection testing after pool creation
+7. ✅ Fixed compilation error by removing invalid `connect_timeout` method
 
 ### Next Steps:
 

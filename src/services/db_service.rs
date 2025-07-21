@@ -46,7 +46,6 @@ impl DbConnectionManager {
             .acquire_timeout(Duration::from_secs(30))  // Increased timeout
             .idle_timeout(Duration::from_secs(600))    // 10 minutes idle timeout
             .max_lifetime(Duration::from_secs(1800))   // 30 minutes max lifetime
-            .connect_timeout(Duration::from_secs(30))  // 30 seconds to establish connection
             .connect(&self.connection_string)
             .await
         {
