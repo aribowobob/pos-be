@@ -7,6 +7,45 @@ use serde::Deserialize;
 use std::env;
 use time::Duration; // Use time::Duration instead of std::time::Duration
 
+// Helper function to extract domain from the last FRONTEND_URL for production
+fn get_cookie_domain() -> Option<String> {
+    let environment = env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string());
+    
+    if environment != "production" {
+        return None; // No domain restriction for development
+    }
+    
+    // Get the last FRONTEND_URL for production domain
+    let frontend_urls = env::var("FRONTEND_URLS").unwrap_or_default();
+    let urls: Vec<&str> = frontend_urls.split(',').collect();
+    
+    if let Some(last_url) = urls.last() {
+        let url = last_url.trim();
+        
+        // Extract host from URL (remove protocol and path)
+        let host = if url.starts_with("https://") {
+            &url[8..]
+        } else if url.starts_with("http://") {
+            &url[7..]
+        } else {
+            url
+        };
+        
+        // Remove path if any
+        let host = host.split('/').next().unwrap_or(host);
+        
+        // Extract the main domain (e.g., from "pos.opense7en.com" get ".opense7en.com")
+        let parts: Vec<&str> = host.split('.').collect();
+        if parts.len() >= 2 {
+            let main_domain = format!(".{}", parts[parts.len()-2..].join("."));
+            info!("Setting cookie domain for production: {}", main_domain);
+            return Some(main_domain);
+        }
+    }
+    
+    None
+}
+
 // Helper function to create auth cookie - add #[allow(dead_code)] to suppress the warning
 #[allow(dead_code)]
 fn create_auth_cookie(token: &str) -> Cookie {
@@ -84,18 +123,25 @@ pub async fn google_login(
                     // Untuk permintaan cross-origin dengan SameSite=None, cookie harus selalu secure
                     // Ini adalah persyaratan browser modern, meskipun API berjalan di HTTP
                     
-                    // Dalam situasi ini, kita akan menghindari mengatur domain cookie untuk kompatibilitas maksimum
                     info!("Setting cookie for cross-origin support");
                     
-                    // Force secure untuk cross-site, walaupun kita menggunakan HTTP
-                    // Browser modern memerlukan ini ketika SameSite=None
-                    let cookie = Cookie::build("access_token", token.clone())
+                    // Build cookie with optional domain based on environment
+                    let mut cookie_builder = Cookie::build("access_token", token.clone())
                         .path("/")
                         .max_age(Duration::hours(24))
                         .http_only(true)
                         .same_site(actix_web::cookie::SameSite::None) // Required for cross-site requests
-                        .secure(true) // Must be true when SameSite=None, even if using HTTP
-                        .finish();
+                        .secure(true); // Must be true when SameSite=None, even if using HTTP
+                    
+                    // Set domain for production environment
+                    if let Some(domain) = get_cookie_domain() {
+                        cookie_builder = cookie_builder.domain(domain.clone());
+                        debug!("Cookie domain set to: {}", domain);
+                    } else {
+                        debug!("No domain restriction for cookie (development mode)");
+                    }
+                    
+                    let cookie = cookie_builder.finish();
                     
                     debug!("Cookie path: {}, SameSite: None, Secure: true", cookie.path().unwrap_or("/"));
                     
@@ -149,14 +195,19 @@ pub async fn google_login(
 )]
 pub async fn logout() -> HttpResponse {
     // Build cookie with appropriate settings, matching login
-    // Konsisten dengan login - tanpa domain
-    let cookie = Cookie::build("access_token", "")
+    let mut cookie_builder = Cookie::build("access_token", "")
         .path("/")
         .max_age(Duration::seconds(0))
         .http_only(true)
         .same_site(actix_web::cookie::SameSite::None) // Consistent with login cookie
-        .secure(true) // Must be true when SameSite=None, even if using HTTP
-        .finish();
+        .secure(true); // Must be true when SameSite=None, even if using HTTP
+    
+    // Set domain for production environment (same as login)
+    if let Some(domain) = get_cookie_domain() {
+        cookie_builder = cookie_builder.domain(domain);
+    }
+    
+    let cookie = cookie_builder.finish();
 
     HttpResponse::Ok()
         .append_header(("Access-Control-Allow-Credentials", "true"))
