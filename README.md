@@ -191,6 +191,7 @@ The following secrets need to be configured in your GitHub repository:
 ### Required GitHub Variables
 
 - `DROPLET_IP`: IP address of the Digital Ocean droplet
+- `FRONTEND_URLS`: Allowed frontend url
 
 ### How to Deploy
 
@@ -209,6 +210,23 @@ The GitHub Actions workflow will automatically:
 1. Build the Docker image
 2. Tag it with the version number
 3. Deploy it to your Digital Ocean droplet
+
+## Troubleshoot with droplet
+
+- If accessed through frontend application and you find error 503 when hitting the backend api, please launch your droplet console and do:
+
+```
+# Stop the containers
+docker-compose down
+
+# Remove the database volume to start fresh
+docker volume rm pos-app_db
+
+# Start the containers again
+docker-compose up -d
+
+# After the containers up again, run the /db-migration service
+```
 
 ## License
 
