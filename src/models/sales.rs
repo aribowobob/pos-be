@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc, NaiveDate, NaiveDateTime};
+use chrono::{NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use rust_decimal::Decimal;
@@ -141,7 +141,7 @@ pub struct DetailedSalesOrder {
     pub payment_cash: Decimal,
     pub payment_non_cash: Decimal,
     pub receivable: Decimal,
-    pub created_at: DateTime<Utc>,
+    pub created_at: NaiveDateTime,
     pub customer_id: Option<i32>,
 }
 
@@ -182,7 +182,7 @@ pub struct SalesReportOrder {
     pub payment_cash: Decimal,
     pub payment_non_cash: Decimal,
     pub receivable: Decimal,
-    pub created_at: DateTime<Utc>,
+    pub created_at: NaiveDateTime,
     pub customer_id: Option<i32>,
 }
 
