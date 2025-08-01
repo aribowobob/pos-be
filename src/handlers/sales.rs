@@ -464,19 +464,19 @@ pub async fn get_sales_order_by_id(
     let auth_result = crate::middleware::extract_auth::extract_auth_user(&req, &db_manager).await;
     
     // Handle authentication result
-    let user = match auth_result {
-        Ok((user, _)) => {
-            info!("User authenticated: {}", user.email);
-            user
+    let (_user, company_id) = match auth_result {
+        Ok((user, company_id)) => {
+            info!("User authenticated: {} (company_id: {})", user.email, company_id);
+            (user, company_id)
         },
         Err(e) => {
             error!("Authentication failed: {:?}", e);
             return HttpResponse::Unauthorized().json(ApiResponse::<()>::error(&format!("Authentication failed: {}", e)));
         }
     };
-    
-    // Process the request with the authenticated user's ID, simplified to just require login
-    match sales_service::get_sales_order_by_id(&db_manager, order_id, user.id).await {
+
+    // Pass company_id to service for access check
+    match sales_service::get_sales_order_by_id(&db_manager, order_id, company_id).await {
         Ok(order_response) => {
             info!("Successfully retrieved sales order ID: {}", order_id);
             HttpResponse::Ok().json(ApiResponse::success(order_response))

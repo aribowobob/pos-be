@@ -663,7 +663,7 @@ pub async fn generate_sales_report(
 pub async fn get_sales_order_by_id(
     db_manager: &DbConnectionManager,
     order_id: i32,
-    _user_id: i32, // Prefix with underscore as it's required for authentication but not used in query
+    requester_company_id: i32, // Authenticated user's company_id
 ) -> Result<DetailedOrderResponse, ServiceError> {
     let pool = match db_manager.get_pool().await {
         Ok(pool) => pool,
@@ -673,20 +673,24 @@ pub async fn get_sales_order_by_id(
         }
     };
 
-    // Simply check if the order exists, without company ID restriction
-    let order = match sqlx::query_as::<_, DetailedSalesOrder>(
-        "SELECT so.id, so.order_number, so.user_id, u.initial as user_initial, 
-                so.store_id, s.initial as store_initial, so.date, so.grand_total, 
-                so.payment_cash, so.payment_non_cash, so.receivable, so.created_at, so.customer_id
-         FROM sales_orders so
-         JOIN users u ON so.user_id = u.id
-         JOIN stores s ON so.store_id = s.id
-         WHERE so.id = $1"
+    // Fetch order and creator's company_id
+    let order_row = sqlx::query!(
+        r#"
+        SELECT so.id, so.order_number, so.user_id, u.initial as user_initial, 
+               so.store_id, s.initial as store_initial, so.date, so.grand_total, 
+               so.payment_cash, so.payment_non_cash, so.receivable, so.created_at, so.customer_id,
+               u.company_id as creator_company_id
+        FROM sales_orders so
+        JOIN users u ON so.user_id = u.id
+        JOIN stores s ON so.store_id = s.id
+        WHERE so.id = $1
+        "#,
+        order_id
     )
-    .bind(order_id)
     .fetch_optional(&pool)
-    .await {
-        Ok(Some(order)) => order,
+    .await;
+    let order_row = match order_row {
+        Ok(Some(row)) => row,
         Ok(None) => {
             info!("Sales order ID {} not found", order_id);
             return Err(ServiceError::NotFound);
@@ -695,6 +699,30 @@ pub async fn get_sales_order_by_id(
             error!("Database error while fetching sales order: {}", e);
             return Err(ServiceError::DatabaseError(e.to_string()));
         }
+    };
+
+    // Check company_id
+    let creator_company_id = order_row.creator_company_id;
+    if creator_company_id != requester_company_id {
+        info!("User with company_id {} tried to access order {} from company_id {}", requester_company_id, order_id, creator_company_id);
+        return Err(ServiceError::NotFound);
+    }
+
+    // Map order_row to DetailedSalesOrder
+    let order = DetailedSalesOrder {
+        id: order_row.id,
+        order_number: order_row.order_number,
+        user_id: order_row.user_id,
+        user_initial: order_row.user_initial,
+        store_id: order_row.store_id,
+        store_initial: order_row.store_initial,
+        date: order_row.date,
+        grand_total: order_row.grand_total,
+        payment_cash: order_row.payment_cash,
+        payment_non_cash: order_row.payment_non_cash,
+        receivable: order_row.receivable,
+        created_at: order_row.created_at,
+        customer_id: order_row.customer_id,
     };
 
     // Now, get all the details with product information
