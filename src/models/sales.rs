@@ -191,7 +191,7 @@ pub struct SkuSummaryItem {
     pub product_id: i32,
     pub product_name: String,
     pub sku: String,
-    pub total_qty: i32,
+    pub total_qty: i64,
     pub total_price: Decimal,
 }
 
