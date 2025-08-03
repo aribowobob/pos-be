@@ -1,6 +1,6 @@
 use crate::errors::ServiceError;
 use crate::models::sales::{SalesCart, SalesCartResponse, NewSalesCart, UpdateSalesCart, SalesOrder, SalesOrderDetail, CreateOrderRequest, OrderResponse,
-    SalesReport, SalesReportOrder, SkuSummaryItem, SalesSummary, SalesReportQuery, 
+    SalesReport, SalesReportOrder, SalesReportOrderItem, SkuSummaryItem, SalesSummary, SalesReportQuery, 
     DetailedOrderResponse, DetailedSalesOrder, DetailedSalesOrderDetail};
 use crate::services::db_service::DbConnectionManager;
 use chrono::Utc;
@@ -597,7 +597,31 @@ pub async fn generate_sales_report(
     }
     
     let orders = match query_builder.fetch_all(&pool).await {
-        Ok(orders) => orders,
+        Ok(mut orders) => {
+            // For each order, we need to populate the items
+            for order in &mut orders {
+                let items = match sqlx::query_as::<_, SalesReportOrderItem>(
+                    "SELECT sod.id, sod.order_id, sod.product_id, p.name as product_name, p.sku,
+                            sod.qty, sod.base_price, sod.discount_type, sod.discount_value,
+                            sod.discount_amount, sod.sale_price, sod.total_price
+                     FROM sales_order_details sod
+                     JOIN products p ON sod.product_id = p.id
+                     WHERE sod.order_id = $1
+                     ORDER BY sod.id"
+                )
+                .bind(order.id)
+                .fetch_all(&pool)
+                .await {
+                    Ok(items) => items,
+                    Err(e) => {
+                        error!("Error fetching order items for order {}: {:?}", order.id, e);
+                        return Err(ServiceError::DatabaseError(e.to_string()));
+                    }
+                };
+                order.items = items;
+            }
+            orders
+        },
         Err(e) => {
             error!("Error fetching orders for report: {:?}", e);
             return Err(ServiceError::DatabaseError(e.to_string()));

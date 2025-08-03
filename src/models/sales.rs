@@ -184,6 +184,25 @@ pub struct SalesReportOrder {
     pub receivable: Decimal,
     pub created_at: NaiveDateTime,
     pub customer_id: Option<i32>,
+    #[sqlx(skip)]
+    #[serde(default)]
+    pub items: Vec<SalesReportOrderItem>, // Added field for order items
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct SalesReportOrderItem {
+    pub id: i32,
+    pub order_id: i32,
+    pub product_id: i32,
+    pub product_name: String,
+    pub sku: String,
+    pub qty: i32,
+    pub base_price: Decimal,
+    pub discount_type: String,
+    pub discount_value: Decimal,
+    pub discount_amount: Decimal,
+    pub sale_price: Decimal,
+    pub total_price: Decimal,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
