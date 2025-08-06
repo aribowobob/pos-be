@@ -198,6 +198,12 @@ The following secrets need to be configured in your GitHub repository:
 To deploy a new version:
 
 ```bash
+# Update version on Cargo.toml
+# Run this to update Cargo.lock
+cargo build --release
+
+# Commit the changes and push to main branch
+
 # Tag a new version
 git tag v1.0.0
 

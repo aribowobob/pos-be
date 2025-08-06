@@ -5,8 +5,27 @@ use crate::models::sales::{SalesCart, SalesCartResponse, NewSalesCart, UpdateSal
 use crate::services::db_service::DbConnectionManager;
 use chrono::Utc;
 use log::{error, info};
-use sqlx::{Row, Transaction, Postgres};
+use sqlx::{Row, Transaction, Postgres, FromRow};
 use rust_decimal::Decimal;
+
+// Struct for the order query result
+#[derive(FromRow)]
+struct OrderQueryResult {
+    pub id: i32,
+    pub order_number: String,
+    pub user_id: i32,
+    pub user_initial: String,
+    pub store_id: i32,
+    pub store_initial: String,
+    pub date: chrono::NaiveDate,
+    pub grand_total: Decimal,
+    pub payment_cash: Decimal,
+    pub payment_non_cash: Decimal,
+    pub receivable: Decimal,
+    pub created_at: chrono::NaiveDateTime,
+    pub customer_id: Option<i32>,
+    pub creator_company_id: i32,
+}
 
 pub async fn add_to_cart(
     db_manager: &DbConnectionManager,
@@ -698,7 +717,7 @@ pub async fn get_sales_order_by_id(
     };
 
     // Fetch order and creator's company_id
-    let order_row = sqlx::query!(
+    let order_row = sqlx::query_as::<_, OrderQueryResult>(
         r#"
         SELECT so.id, so.order_number, so.user_id, u.initial as user_initial, 
                so.store_id, s.initial as store_initial, so.date, so.grand_total, 
@@ -709,8 +728,8 @@ pub async fn get_sales_order_by_id(
         JOIN stores s ON so.store_id = s.id
         WHERE so.id = $1
         "#,
-        order_id
     )
+    .bind(order_id)
     .fetch_optional(&pool)
     .await;
     let order_row = match order_row {
