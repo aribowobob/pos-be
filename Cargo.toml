@@ -3,6 +3,11 @@ name = "pos-be"
 version = "0.0.19"
 edition = "2021"
 
+# IMPORTANT: SQLx configuration for Docker compatibility
+# - Never add "offline" feature to sqlx
+# - Always use runtime queries (sqlx::query) not compile-time queries (sqlx::query!)
+# - See DEVELOPMENT_GUIDE.md for details
+
 [dependencies]
 sqlx = { version = "0.7", features = ["runtime-tokio", "postgres", "chrono", "json", "uuid", "rust_decimal"] }
 actix-web = "4.3"
