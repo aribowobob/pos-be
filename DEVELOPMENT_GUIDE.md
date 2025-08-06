@@ -1,6 +1,7 @@
 # Development Guide for POS Backend
 
 ## Table of Contents
+
 1. [SQLx Database Query Guidelines](#sqlx-database-query-guidelines)
 2. [Docker Build Best Practices](#docker-build-best-practices)
 3. [CI/CD Guidelines](#cicd-guidelines)
@@ -14,6 +15,7 @@
 **NEVER use `sqlx::query!` macro in this project.** Always use `sqlx::query` with manual type mapping.
 
 #### ❌ DON'T DO THIS:
+
 ```rust
 // This will fail in Docker builds because it requires database connection at compile time
 let result = sqlx::query!(
@@ -25,6 +27,7 @@ let result = sqlx::query!(
 ```
 
 #### ✅ DO THIS INSTEAD:
+
 ```rust
 // This works in Docker builds because it uses runtime verification
 let result = sqlx::query(
@@ -50,14 +53,18 @@ let result = sqlx::query_as::<_, UserResult>(
 ```
 
 ### Required Imports
+
 Always include these imports when working with SQLx:
+
 ```rust
 use sqlx::{Row, FromRow};
 use sqlx::postgres::PgRow;
 ```
 
 ### Pattern for Manual Row Mapping
+
 When you need to manually extract values from rows:
+
 ```rust
 let user = User {
     id: row.try_get::<i32, _>("id")?,
@@ -68,7 +75,9 @@ let user = User {
 ```
 
 ### Pattern for Dynamic Queries
+
 For queries with optional search parameters:
+
 ```rust
 let mut query = String::from("SELECT * FROM table WHERE 1=1");
 let mut params = Vec::new();
@@ -89,11 +98,13 @@ for param in params {
 ## Docker Build Best Practices
 
 ### Dockerfile Requirements
+
 - Never set `ENV SQLX_OFFLINE=true` unless you have a complete offline setup
 - Always use runtime queries instead of compile-time verification
 - Keep dependencies minimal
 
 ### Environment Variables in Docker
+
 ```dockerfile
 # ✅ Good - these don't require database connection
 ENV RUST_LOG=info
@@ -106,11 +117,13 @@ ENV PORT=8080
 ## CI/CD Guidelines
 
 ### GitHub Actions Deployment
+
 1. **Build Phase**: Should not require database connection
 2. **Deploy Phase**: Database connection is available on the server
 3. **Always test locally with `cargo build --release` before pushing**
 
 ### Testing Before Deployment
+
 ```bash
 # Always run these before pushing:
 cargo check
@@ -122,6 +135,7 @@ cargo build --release
 ### When Requesting AI Code Generation
 
 #### ✅ Always Include These Instructions:
+
 ```
 IMPORTANT DATABASE QUERY REQUIREMENTS:
 - Use sqlx::query() instead of sqlx::query!()
@@ -132,14 +146,17 @@ IMPORTANT DATABASE QUERY REQUIREMENTS:
 ```
 
 #### Example AI Prompt:
+
 ```
-Create a function to get users by email. IMPORTANT: Use sqlx::query() not sqlx::query!() 
-because we need runtime verification for Docker builds. Use proper error handling 
+Create a function to get users by email. IMPORTANT: Use sqlx::query() not sqlx::query!()
+because we need runtime verification for Docker builds. Use proper error handling
 with ServiceError and manual row mapping.
 ```
 
 ### Code Review Checklist for AI-Generated Code
+
 Before accepting AI-generated database code, check:
+
 - [ ] Uses `sqlx::query()` or `sqlx::query_as()` (NOT `sqlx::query!()`)
 - [ ] Uses `.bind()` for parameters
 - [ ] Has proper error handling with `ServiceError`
@@ -149,10 +166,11 @@ Before accepting AI-generated database code, check:
 ## Error Handling Patterns
 
 ### Standard Error Handling for Database Operations
+
 ```rust
 match sqlx::query("SELECT * FROM table")
     .fetch_one(&pool)
-    .await 
+    .await
 {
     Ok(row) => {
         // Handle success
@@ -165,6 +183,7 @@ match sqlx::query("SELECT * FROM table")
 ```
 
 ### Connection Pool Error Handling
+
 ```rust
 let pool = match db_manager.get_pool().await {
     Ok(pool) => pool,
@@ -178,13 +197,15 @@ let pool = match db_manager.get_pool().await {
 ## Quick Reference
 
 ### Convert Existing sqlx::query! to sqlx::query
+
 1. Find all `sqlx::query!` in your code
-2. Replace with `sqlx::query` 
+2. Replace with `sqlx::query`
 3. Add `.bind()` for each parameter
 4. Create a `FromRow` struct if needed for type safety
 5. Test with `cargo build --release`
 
 ### Search for Problematic Patterns
+
 ```bash
 # Find all potential issues:
 grep -r "sqlx::query!" src/

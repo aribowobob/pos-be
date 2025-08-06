@@ -9,8 +9,9 @@
 ## 🤖 Working with AI Code Generation
 
 **Always include this in your AI prompts:**
+
 ```
-IMPORTANT: Use sqlx::query() not sqlx::query!() for Docker compatibility. 
+IMPORTANT: Use sqlx::query() not sqlx::query!() for Docker compatibility.
 Use .bind() for parameters and proper ServiceError handling.
 ```
 
@@ -43,6 +44,7 @@ If you see "set `DATABASE_URL` to use query macros online":
 4. Push changes
 
 Example fix:
+
 ```rust
 // ❌ This breaks Docker builds
 sqlx::query!("SELECT * FROM users WHERE id = $1", user_id)
@@ -54,7 +56,7 @@ sqlx::query("SELECT * FROM users WHERE id = $1").bind(user_id)
 ## 📁 Important Files
 
 - `DEVELOPMENT_GUIDE.md` - Complete development guidelines
-- `AI_PROMPTS.md` - Templates for AI code generation  
+- `AI_PROMPTS.md` - Templates for AI code generation
 - `check_code.sh` - Code quality checker
 - `Cargo.toml` - Has important SQLx configuration notes
 - `README.md` - Main project documentation
