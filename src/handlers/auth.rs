@@ -48,7 +48,7 @@ fn get_cookie_domain() -> Option<String> {
 
 // Helper function to create auth cookie - add #[allow(dead_code)] to suppress the warning
 #[allow(dead_code)]
-fn create_auth_cookie(token: &str) -> Cookie {
+fn create_auth_cookie(token: &str) -> Cookie<'_> {
     let environment = env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string());
 
     let mut cookie = Cookie::build("access_token", token.to_owned())
