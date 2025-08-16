@@ -47,6 +47,12 @@ jobs:
             echo "::warning::GOOGLE_CLIENT_SECRET secret is not set. Google authentication will not work correctly."
           fi
 
+          # Check Database URL
+          if [ -z "${{ secrets.DATABASE_URL }}" ]; then
+            echo "::error::DATABASE_URL secret is not set. Please add it in repository settings."
+            exit 1
+          fi
+
           echo "All required secrets are available."
 
   build-and-push:
@@ -184,7 +190,7 @@ jobs:
 
           # Create .env file on server with a single command
           echo "Creating .env file on server..."
-          sshpass -e ssh -o ConnectTimeout=30 -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}' > /root/pos-app/.env"
+          sshpass -e ssh -o ConnectTimeout=30 -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'DATABASE_URL=${{ secrets.DATABASE_URL }}' > /root/pos-app/.env"
           sshpass -e ssh -o ConnectTimeout=30 -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'JWT_SECRET=${{ secrets.JWT_SECRET || 'default_jwt_secret_for_production' }}' >> /root/pos-app/.env"
           sshpass -e ssh -o ConnectTimeout=30 -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'FRONTEND_URLS=${{ vars.FRONTEND_URLS || 'http://localhost:3000,https://your-production-url.com,https://staging-url.com' }}' >> /root/pos-app/.env"
           sshpass -e ssh -o ConnectTimeout=30 -o StrictHostKeyChecking=no root@${{ env.DROPLET_IP }} "echo 'GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}' >> /root/pos-app/.env"

@@ -14,7 +14,6 @@ A Point of Sale (POS) backend system built with Rust and Actix-web, featuring Go
 - Google OAuth2 integration for user authentication
 - JWT token-based authentication
 - PostgreSQL database integration
-- Automated database migration through SQL files
 - Structured error handling
 - Health check endpoints
 - Role-based access control
@@ -123,11 +122,6 @@ cargo watch -x run
 
 # Or run normally
 cargo run
-
-# Set up the database tables automatically (adjust port number if changed)
-curl http://localhost:8080/db-migration
-# Or if using custom port
-curl http://localhost:8081/db-migration
 ```
 
 5. Build for production
@@ -137,25 +131,6 @@ Read `.github/workflows/prod.yml`
 ## API Documentation
 
 - **Health**: `/health` - Health check endpoint
-- **Database Migration**: `/db-migration` - Create or migrate database tables
-
-## Database Migration System
-
-This application features an automated database migration system that:
-
-1. Reads SQL files from the `src/db_migration/` directory
-2. Executes them in alphabetical order (e.g., 001_file.sql, 002_file.sql)
-3. Handles PL/pgSQL blocks with dollar-quoted strings properly
-4. Continues execution even when tables already exist
-5. Provides detailed logging for successful and failed migrations
-
-### Using the Migration System
-
-The migration endpoint is public and can be accessed without authentication:
-
-```bash
-curl http://localhost:8080/db-migration
-```
 
 ## Dependencies
 
@@ -236,8 +211,6 @@ docker volume rm pos-app_db
 
 # Start the containers again
 docker-compose up -d
-
-# After the containers up again, run the /db-migration service
 ```
 
 ## License

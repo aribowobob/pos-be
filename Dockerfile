@@ -6,7 +6,6 @@ RUN cargo build --release
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y libpq5 ca-certificates libssl3 && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /usr/src/app/target/release/pos-be /app/pos-be
-COPY --from=builder /usr/src/app/src/db_migration /app/src/db_migration
 WORKDIR /app
 ENTRYPOINT ["/app/pos-be"]
 EXPOSE 8080

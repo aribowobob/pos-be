@@ -48,9 +48,6 @@ use self::schemas::{StringResponse, UnitResponse};
         crate::handlers::sales::clear_cart,
         crate::handlers::sales::get_sales_report,
         crate::handlers::sales::get_sales_order_by_id,
-        
-        // Migration endpoints
-        crate::handlers::migration::db_migration,
     ),
     components(
         schemas(
